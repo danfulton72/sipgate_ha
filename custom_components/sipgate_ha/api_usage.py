@@ -42,9 +42,7 @@ class SipgateApiUsage:
         stored_date = str(data.get("date", ""))
         today = self._today_key()
         self._date = today
-        self._today = (
-            max(0, int(data.get("today", 0))) if stored_date == today else 0
-        )
+        self._today = max(0, int(data.get("today", 0))) if stored_date == today else 0
 
     @callback
     def start(self) -> None:

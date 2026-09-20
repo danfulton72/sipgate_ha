@@ -34,9 +34,7 @@ async def test_authentication_error(hass: HomeAssistant, aioclient_mock) -> None
 
 async def test_api_error(hass: HomeAssistant, aioclient_mock) -> None:
     """Other HTTP failures retain their status and a bounded response body."""
-    aioclient_mock.get(
-        f"{API_BASE_URL}/account", status=500, text="server error"
-    )
+    aioclient_mock.get(f"{API_BASE_URL}/account", status=500, text="server error")
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
     with pytest.raises(SipgateApiError) as err:

@@ -41,6 +41,8 @@
     "error": {
       "cannot_connect": "Could not connect to sipgate. Check your internet connection and try again.",
       "invalid_auth": "sipgate rejected these Personal Access Token credentials.",
+      "invalid_token_id": "Enter only the Personal Access Token ID, for example token-ABC123-0. Do not paste ID:secret or a Basic authorization value.",
+      "invalid_token": "Enter the Personal Access Token secret.",
       "missing_account_scope": "The token is valid but is missing the required `account:read` permission.",
       "invalid_url": "Enter a valid HTTP or HTTPS Home Assistant base URL without a query string or fragment.",
       "unknown": "sipgate returned an unexpected response while validating the token."

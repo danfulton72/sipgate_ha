@@ -65,7 +65,9 @@ async def _async_validate_credentials(
     client = SipgateClient(async_get_clientsession(hass), token_id, token)
     try:
         await client.async_validate_credentials()
-    except (SipgateAuthenticationError, SipgateAuthorizationError):
+    except SipgateAuthenticationError:
+        return {"base": "invalid_auth"}
+    except SipgateAuthorizationError:
         return {"base": "invalid_auth"}
     except SipgateConnectionError:
         return {"base": "cannot_connect"}

@@ -129,7 +129,7 @@ async def test_duplicate_setup_aborts(hass: HomeAssistant, mock_config_entry) ->
     )
 
     assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "already_configured"
+    assert result["reason"] == "single_instance_allowed"
 
 
 async def test_unexpected_api_error(hass: HomeAssistant, aioclient_mock) -> None:

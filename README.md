@@ -1,10 +1,6 @@
 # sipgate.io for Home Assistant
 
-A native Home Assistant custom integration for **sipgate.io call webhooks**.
-It receives `newCall`, `answer`, and `hangup` events directly inside Home
-Assistant, fires Home Assistant events for automations, resolves optional local
-caller-name mappings, and provides a `sipgate_ha.hang_up` action for real-time
-call control.
+A native Home Assistant custom integration for **sipgate.io calls**. It receives `newCall`, `answer`, and `hangup` webhooks directly inside Home Assistant, maintains live call-state entities, exposes recent call history, resolves optional caller-name mappings, and provides native actions for hang-up, call recording, and click-to-call.
 
 There is no sidecar container, no long-lived Home Assistant access token, and
 no YAML required to configure the integration itself.
@@ -13,7 +9,7 @@ no YAML required to configure the integration itself.
 
 - Home Assistant **2026.9.0 or newer**.
 - A sipgate account with sipgate.io push webhooks enabled.
-- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` only if you want to use the `sipgate_ha.hang_up` action.
+- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, and `sessions:calls:write` for click-to-call.
 - A Home Assistant URL that sipgate can reach from the internet. HTTPS is
   strongly recommended by sipgate.
 
@@ -50,6 +46,18 @@ returns the XML that subscribes the same URL to sipgate's `onAnswer` and
 > Treat the webhook URL as a secret. Home Assistant webhook endpoints are
 > intentionally unauthenticated; the random webhook ID is the bearer secret.
 
+## Call-state entities
+
+The integration creates push-driven entities that update from sipgate webhooks:
+
+- **Call active** — binary sensor that is on while one or more tracked calls are active.
+- **Call state** — `idle`, `ringing`, or `answered`, with active calls in attributes.
+- **Last caller** — the most recent incoming caller display/name/number.
+- **Last call** — the most recently ended call and its final cause/metadata.
+- **Recent calls** — the latest 10 CALL history entries, refreshed every five minutes. History attributes include sipgate recording metadata/URLs when present.
+
+The recent-history entity requires the PAT scope `history:read`. The webhook-driven call-state entities do not.
+
 ## Home Assistant events
 
 The integration fires these events:
@@ -77,7 +85,9 @@ user_ids:
 The event names intentionally match the original container bridge so existing
 automations need minimal changes.
 
-## Hang up action
+## Call control actions
+
+### Hang up
 
 Use the native action instead of a `rest_command`:
 
@@ -90,6 +100,40 @@ data:
 sipgate documents `DELETE /v2/calls/{callId}` for terminating a running call.
 The `sipgate_ha.hang_up` action has been verified against a live incoming
 sipgate call, including while the call is ringing.
+
+### Start / stop recording
+
+Recording uses sipgate RTCM and requires `rtcm:write`.
+
+```yaml
+action: sipgate_ha.start_recording
+data:
+  call_id: "{{ states.binary_sensor.call_active.attributes.current_call.call_id }}"
+  announcement: true
+```
+
+```yaml
+action: sipgate_ha.stop_recording
+data:
+  call_id: "{{ states.binary_sensor.call_active.attributes.current_call.call_id }}"
+  announcement: false
+```
+
+The call-state attributes track recording state when recording is started or stopped through Home Assistant. Completed recordings are also exposed through the Recent calls history sensor when sipgate includes them in the history response.
+
+### Click to call
+
+Click-to-call requires `sessions:calls:write`. The source can be a sipgate extension such as `e14` or a number. If `from` is a group/number rather than an extension, provide `device_id`.
+
+```yaml
+action: sipgate_ha.click_to_call
+data:
+  from: e14
+  to: "+442071234567"
+  caller_id: "+442079876543"
+```
+
+sipgate rings the source endpoint first. After it is answered, sipgate calls the destination.
 
 ## Actionable mobile notification package
 
@@ -144,9 +188,12 @@ Home Assistant /api/webhook/<random-id>
     ├─ answer  ──► fire sipgate_call_answered
     └─ hangup  ──► fire sipgate_call_ended
 
-Home Assistant automation
-    │
-    └─ sipgate_ha.hang_up ──► DELETE api.sipgate.com/v2/calls/<callId>
+Home Assistant
+    ├─ push-driven call state entities
+    ├─ recent call history ──► GET api.sipgate.com/v2/history
+    ├─ hang_up ──────────────► DELETE /v2/calls/<callId>
+    ├─ start/stop_recording ─► PUT /v2/calls/<callId>/recording
+    └─ click_to_call ────────► POST /v2/sessions/calls
 ```
 
 The `newCall` path intentionally performs no outbound API request before

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from html import escape
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp.web import Request, Response
 from homeassistant.config_entries import ConfigEntry
@@ -22,6 +22,9 @@ from .const import (
     EVENT_CALL_STARTED,
 )
 from .helpers import describe_number, parse_contacts, to_e164
+
+if TYPE_CHECKING:
+    from . import SipgateRuntimeData
 
 XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 
@@ -42,6 +45,11 @@ def _base_event_data(entry: ConfigEntry, form: MultiDictProxy[str]) -> dict[str,
         "to": to_e164(_string(form, "to")),
         "diversion": to_e164(_string(form, "diversion")),
     }
+
+
+def _runtime(entry: ConfigEntry) -> SipgateRuntimeData:
+    """Return typed runtime data."""
+    return entry.runtime_data
 
 
 async def async_handle_webhook(
@@ -107,6 +115,7 @@ def _handle_new_call(
                 ],
             }
         )
+        _runtime(entry).call_state.started(data)
         hass.bus.async_fire(EVENT_CALL_STARTED, data)
 
     callback_url = escape(webhook_url, quote=True)
@@ -130,6 +139,7 @@ def _handle_answer(
             "answering_number": to_e164(_string(form, "answeringNumber")),
         }
     )
+    _runtime(entry).call_state.answered(data)
     hass.bus.async_fire(EVENT_CALL_ANSWERED, data)
 
 
@@ -144,4 +154,5 @@ def _handle_hangup(
             "answering_number": to_e164(_string(form, "answeringNumber")),
         }
     )
+    _runtime(entry).call_state.ended(data)
     hass.bus.async_fire(EVENT_CALL_ENDED, data)

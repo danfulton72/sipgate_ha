@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to sipgate.io",
-        "description": "Create a sipgate Personal Access Token with `account:read`. The public Home Assistant URL must be reachable by sipgate. Add `rtcm:write` only if you want to use the optional Hang up action.",
+        "description": "Create a sipgate Personal Access Token with `account:read`. Add `rtcm:write` for Hang up/recording, `history:read` for call history, and `sessions:calls:write` for click-to-call.",
         "data": {
           "token_id": "Personal Access Token ID",
           "token": "Personal Access Token",
@@ -82,6 +82,77 @@
           "name": "Call ID",
           "description": "The callId received in a sipgate webhook event."
         }
+      }
+    },
+    "start_recording": {
+      "name": "Start recording",
+      "description": "Start recording an active sipgate call.",
+      "fields": {
+        "call_id": {
+          "name": "Call ID",
+          "description": "The active call ID."
+        },
+        "announcement": {
+          "name": "Announcement",
+          "description": "Ask sipgate to announce recording to call participants."
+        }
+      }
+    },
+    "stop_recording": {
+      "name": "Stop recording",
+      "description": "Stop recording an active sipgate call.",
+      "fields": {
+        "call_id": {
+          "name": "Call ID",
+          "description": "The active call ID."
+        },
+        "announcement": {
+          "name": "Announcement",
+          "description": "Ask sipgate to announce the recording state change."
+        }
+      }
+    },
+    "click_to_call": {
+      "name": "Click to call",
+      "description": "Initiate a sipgate click-to-call session. Your source endpoint rings first; after pickup sipgate calls the destination.",
+      "fields": {
+        "from": {
+          "name": "From",
+          "description": "Source extension or number, for example e14 or +442071234567."
+        },
+        "to": {
+          "name": "To",
+          "description": "Destination phone number, preferably E.164."
+        },
+        "device_id": {
+          "name": "Device ID",
+          "description": "Optional device extension. Required when From is a group/number rather than an extension."
+        },
+        "caller_id": {
+          "name": "Caller ID",
+          "description": "Optional caller ID presented to the destination."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "call_active": {
+        "name": "Call active"
+      }
+    },
+    "sensor": {
+      "call_state": {
+        "name": "Call state"
+      },
+      "last_caller": {
+        "name": "Last caller"
+      },
+      "last_call": {
+        "name": "Last call"
+      },
+      "recent_calls": {
+        "name": "Recent calls"
       }
     }
   }

@@ -69,8 +69,8 @@ class SipgateClient:
             raise SipgateConnectionError from err
 
     async def async_validate_credentials(self) -> None:
-        """Validate credentials against sipgate's current-user endpoint."""
-        await self._request("GET", "/authorization/userinfo")
+        """Validate credentials against sipgate's account endpoint."""
+        await self._request("GET", "/account")
 
     async def async_hang_up(self, call_id: str) -> None:
         """Terminate a running call."""

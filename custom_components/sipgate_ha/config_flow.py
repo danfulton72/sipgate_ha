@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -46,6 +47,8 @@ from .helpers import (
     parse_contacts,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 TOKEN_SELECTOR = TextSelector(
     TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password")
 )
@@ -68,10 +71,13 @@ async def _async_validate_credentials(
     except SipgateAuthenticationError:
         return {"base": "invalid_auth"}
     except SipgateAuthorizationError:
-        return {"base": "invalid_auth"}
+        return {"base": "missing_account_scope"}
     except SipgateConnectionError:
         return {"base": "cannot_connect"}
-    except SipgateApiError:
+    except SipgateApiError as err:
+        _LOGGER.warning(
+            "sipgate PAT validation returned unexpected HTTP status %s", err.status
+        )
         return {"base": "unknown"}
     return {}
 

@@ -13,7 +13,7 @@ no YAML required to configure the integration itself.
 
 - Home Assistant **2026.9.0 or newer**.
 - A sipgate account with sipgate.io push webhooks enabled.
-- A sipgate Personal Access Token (PAT). The `rtcm:write` permission is only required if you want to use the `sipgate_ha.hang_up` action.
+- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` only if you want to use the `sipgate_ha.hang_up` action.
 - A Home Assistant URL that sipgate can reach from the internet. HTTPS is
   strongly recommended by sipgate.
 
@@ -39,7 +39,7 @@ During the UI setup flow enter:
 - your externally reachable Home Assistant base URL, for example
   `https://ha.example.com` or your Home Assistant Cloud remote URL.
 
-The integration validates the PAT against sipgate's current-user endpoint and
+The integration validates the PAT against sipgate's documented `/v2/account` endpoint and
 then generates a cryptographically random Home Assistant webhook ID. The final
 setup step displays the complete webhook URL.
 

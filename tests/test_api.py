@@ -170,3 +170,20 @@ async def test_unexpected_history_response(hass: HomeAssistant, aioclient_mock) 
 
     with pytest.raises(SipgateApiError):
         await client.async_get_call_history(10)
+
+
+async def test_send_sms(hass: HomeAssistant, aioclient_mock) -> None:
+    """SMS uses the sipgate sessions SMS endpoint."""
+    aioclient_mock.post(
+        f"{API_BASE_URL}/sessions/sms",
+        json={"sessionId": "sms-session-123"},
+    )
+    client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
+
+    session_id = await client.async_send_sms(
+        sms_id="s0",
+        recipient="+447700900123",
+        message="Hello from Home Assistant",
+    )
+
+    assert session_id == "sms-session-123"

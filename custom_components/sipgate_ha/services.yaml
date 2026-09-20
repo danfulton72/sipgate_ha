@@ -47,6 +47,25 @@ click_to_call:
       selector:
         text:
     caller_id:
-      example: "+442079876543"
+      example: "+441513200220"
       selector:
         text:
+
+send_sms:
+  fields:
+    sms_id:
+      required: true
+      example: s0
+      selector:
+        text:
+    recipient:
+      required: true
+      example: "+447700900123"
+      selector:
+        text:
+    message:
+      required: true
+      example: "Hello from Home Assistant"
+      selector:
+        text:
+          multiline: true

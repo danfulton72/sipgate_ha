@@ -1,6 +1,6 @@
 # sipgate.io for Home Assistant
 
-A native Home Assistant custom integration for **sipgate.io calls**. It receives `newCall`, `answer`, and `hangup` webhooks directly inside Home Assistant, maintains live call-state entities, exposes recent call history, resolves optional caller-name mappings, and provides native actions for hang-up, call recording, and click-to-call.
+A native Home Assistant custom integration for **sipgate.io calls**. It receives `newCall`, `answer`, and `hangup` webhooks directly inside Home Assistant, maintains live call-state entities, exposes recent call history, resolves optional caller-name mappings, and provides native actions for hang-up, call recording, click-to-call, and SMS.
 
 There is no sidecar container, no long-lived Home Assistant access token, and
 no YAML required to configure the integration itself.
@@ -9,7 +9,7 @@ no YAML required to configure the integration itself.
 
 - Home Assistant **2026.9.0 or newer**.
 - A sipgate account with sipgate.io push webhooks enabled.
-- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, and `sessions:calls:write` for click-to-call.
+- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS.
 - A Home Assistant URL that sipgate can reach from the internet. HTTPS is
   strongly recommended by sipgate.
 
@@ -130,10 +130,26 @@ action: sipgate_ha.click_to_call
 data:
   from: e14
   to: "+442071234567"
-  caller_id: "+442079876543"
+  caller_id: "+441513200220"
 ```
 
 sipgate rings the source endpoint first. After it is answered, sipgate calls the destination.
+
+For this installation, the outbound caller ID is `+441513200220`.
+
+### Send SMS
+
+SMS requires `sessions:sms:write` and a sipgate Web SMS extension ID such as `s0`.
+
+```yaml
+action: sipgate_ha.send_sms
+data:
+  sms_id: s0
+  recipient: "+447700900123"
+  message: "Hello from Home Assistant"
+```
+
+The API uses `sms_id` to select the Web SMS extension. The visible sender number is configured and verified in sipgate rather than sent in this API request.
 
 ## Actionable mobile notification package
 
@@ -157,6 +173,8 @@ homeassistant:
 
 Then copy the example to `/config/packages/sipgate.yaml`, update the notify
 action, and restart Home Assistant.
+
+A demonstration Lovelace view is included at [`examples/sipgate_dashboard.yaml`](examples/sipgate_dashboard.yaml). It uses the package SMS helpers and sets the outbound caller ID to `+441513200220`.
 
 ## Caller names
 
@@ -193,7 +211,8 @@ Home Assistant
     ├─ recent call history ──► GET api.sipgate.com/v2/history
     ├─ hang_up ──────────────► DELETE /v2/calls/<callId>
     ├─ start/stop_recording ─► PUT /v2/calls/<callId>/recording
-    └─ click_to_call ────────► POST /v2/sessions/calls
+    ├─ click_to_call ────────► POST /v2/sessions/calls
+    └─ send_sms ──────────────► POST /v2/sessions/sms
 ```
 
 The `newCall` path intentionally performs no outbound API request before

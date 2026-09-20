@@ -35,6 +35,9 @@ from .const import (
     ATTR_CALLER_ID,
     ATTR_DEVICE_ID,
     ATTR_FROM,
+    ATTR_MESSAGE,
+    ATTR_RECIPIENT,
+    ATTR_SMS_ID,
     ATTR_TO,
     CONF_PUBLIC_URL,
     CONF_TOKEN_ID,
@@ -42,6 +45,7 @@ from .const import (
     NAME,
     SERVICE_CLICK_TO_CALL,
     SERVICE_HANG_UP,
+    SERVICE_SEND_SMS,
     SERVICE_START_RECORDING,
     SERVICE_STOP_RECORDING,
 )
@@ -172,6 +176,22 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 }
             )
 
+    async def async_send_sms(call: ServiceCall) -> None:
+        runtime = _get_runtime(hass)
+        try:
+            await runtime.client.async_send_sms(
+                sms_id=call.data[ATTR_SMS_ID],
+                recipient=call.data[ATTR_RECIPIENT],
+                message=call.data[ATTR_MESSAGE],
+            )
+        except (
+            SipgateApiError,
+            SipgateAuthenticationError,
+            SipgateAuthorizationError,
+            SipgateConnectionError,
+        ) as err:
+            _raise_service_error(err)
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_HANG_UP,
@@ -210,6 +230,18 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Required(ATTR_TO): cv.string,
                 vol.Optional(ATTR_DEVICE_ID): cv.string,
                 vol.Optional(ATTR_CALLER_ID): cv.string,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEND_SMS,
+        async_send_sms,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_SMS_ID): cv.string,
+                vol.Required(ATTR_RECIPIENT): cv.string,
+                vol.Required(ATTR_MESSAGE): cv.string,
             }
         ),
     )

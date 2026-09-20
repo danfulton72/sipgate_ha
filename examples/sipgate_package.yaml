@@ -150,3 +150,25 @@ automation:
           message: clear_notification
           data:
             tag: "sipgate-{{ trigger.event.data.call_id }}"
+
+
+###############################################################################
+# Optional dashboard helpers for composing SMS messages
+###############################################################################
+
+input_text:
+  sipgate_sms_id:
+    name: Sipgate SMS ID
+    icon: mdi:message-cog
+    initial: s0
+    max: 16
+
+  sipgate_sms_recipient:
+    name: Sipgate SMS recipient
+    icon: mdi:cellphone
+    max: 32
+
+  sipgate_sms_message:
+    name: Sipgate SMS message
+    icon: mdi:message-text
+    max: 320

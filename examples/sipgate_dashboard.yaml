@@ -1,0 +1,343 @@
+title: Sipgate
+path: sipgate
+icon: mdi:phone
+type: custom:grid-layout
+
+layout:
+  grid-template-columns: repeat(12, 1fr)
+  grid-template-areas: |
+    "title title title title title title title title title title title title"
+    "status status status status status status status status status status status status"
+    "chips chips chips chips chips chips chips chips chips chips chips chips"
+    "hangup hangup hangup record record record caller caller caller last last last"
+    "dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle dialtitle"
+    "dial1 dial1 dial1 dial1 dial2 dial2 dial2 dial2 outbound outbound outbound outbound"
+    "smstitle smstitle smstitle smstitle smstitle smstitle smstitle smstitle smstitle smstitle smstitle smstitle"
+    "smsform smsform smsform smsform smsform smsform smsform smsform send send send send"
+    "historytitle historytitle historytitle historytitle historytitle historytitle historytitle historytitle historytitle historytitle historytitle historytitle"
+    "history history history history history history history history history history history history"
+  grid-gap: 12px
+  mediaquery:
+    "(max-width: 800px)":
+      grid-template-columns: 1fr 1fr
+      grid-template-areas: |
+        "title title"
+        "status status"
+        "chips chips"
+        "hangup record"
+        "caller caller"
+        "last last"
+        "dialtitle dialtitle"
+        "dial1 dial1"
+        "dial2 dial2"
+        "outbound outbound"
+        "smstitle smstitle"
+        "smsform smsform"
+        "send send"
+        "historytitle historytitle"
+        "history history"
+
+cards:
+  - type: custom:mushroom-title-card
+    title: sipgate.io
+    subtitle: Calls, recording, SMS and recent history
+    view_layout:
+      grid-area: title
+
+  - type: custom:mushroom-template-card
+    entity: sensor.sipgate_io_call_state
+    primary: >-
+      {% set s = states('sensor.sipgate_io_call_state') %}
+      {% if s == 'ringing' %}
+        Call ringing
+      {% elif s == 'answered' %}
+        Call connected
+      {% else %}
+        No active call
+      {% endif %}
+    secondary: >-
+      {% set call =
+        state_attr('binary_sensor.sipgate_io_call_active', 'current_call')
+        or {}
+      %}
+      {% if call %}
+        {% if call.direction == 'in' %}
+          From: {{ call.display | default(call.from, true) }}
+        {% else %}
+          To: {{ call.to | default(call.display, true) }}
+        {% endif %}
+        · {{ call.call_id }}
+        {% if call.recording %} · 🔴 Recording{% endif %}
+      {% else %}
+        Outbound caller ID: +441513200220
+      {% endif %}
+    icon: >-
+      {% set s = states('sensor.sipgate_io_call_state') %}
+      {% if s == 'ringing' %}
+        mdi:phone-ring
+      {% elif s == 'answered' %}
+        mdi:phone-in-talk
+      {% else %}
+        mdi:phone-outline
+      {% endif %}
+    icon_color: >-
+      {% set s = states('sensor.sipgate_io_call_state') %}
+      {% if s == 'ringing' %}amber
+      {% elif s == 'answered' %}green
+      {% else %}grey
+      {% endif %}
+    multiline_secondary: true
+    fill_container: true
+    view_layout:
+      grid-area: status
+
+  - type: custom:mushroom-chips-card
+    chips:
+      - type: entity
+        entity: binary_sensor.sipgate_io_call_active
+        icon: mdi:phone
+        content_info: state
+      - type: entity
+        entity: sensor.sipgate_io_call_state
+        icon: mdi:phone-in-talk
+        content_info: state
+      - type: entity
+        entity: sensor.sipgate_io_recent_calls
+        icon: mdi:history
+        content_info: state
+      - type: template
+        icon: mdi:record-rec
+        icon_color: >-
+          {% set call =
+            state_attr('binary_sensor.sipgate_io_call_active', 'current_call')
+            or {}
+          %}
+          {% if call.get('recording') %}red{% else %}grey{% endif %}
+        content: >-
+          {% set call =
+            state_attr('binary_sensor.sipgate_io_call_active', 'current_call')
+            or {}
+          %}
+          {% if call.get('recording') %}Recording{% else %}Not recording{% endif %}
+    alignment: center
+    view_layout:
+      grid-area: chips
+
+  - type: custom:button-card
+    entity: binary_sensor.sipgate_io_call_active
+    name: Hang up
+    icon: mdi:phone-hangup
+    tap_action:
+      action: call-service
+      service: sipgate_ha.hang_up
+      service_data:
+        call_id: >
+          [[[
+            return entity.attributes.current_call?.call_id || "";
+          ]]]
+    state:
+      - value: "on"
+        styles:
+          icon:
+            - color: var(--red-color)
+      - value: "off"
+        styles:
+          card:
+            - opacity: 0.35
+    styles:
+      card:
+        - height: 115px
+        - border-radius: 18px
+    view_layout:
+      grid-area: hangup
+
+  - type: custom:button-card
+    entity: binary_sensor.sipgate_io_call_active
+    name: >
+      [[[
+        return entity.attributes.current_call?.recording
+          ? "Stop recording"
+          : "Start recording";
+      ]]]
+    icon: >
+      [[[
+        return entity.attributes.current_call?.recording
+          ? "mdi:stop-circle"
+          : "mdi:record-rec";
+      ]]]
+    tap_action:
+      action: call-service
+      service: >
+        [[[
+          return entity.attributes.current_call?.recording
+            ? "sipgate_ha.stop_recording"
+            : "sipgate_ha.start_recording";
+        ]]]
+      service_data:
+        call_id: >
+          [[[
+            return entity.attributes.current_call?.call_id || "";
+          ]]]
+        announcement: >
+          [[[
+            return !entity.attributes.current_call?.recording;
+          ]]]
+    state:
+      - value: "off"
+        styles:
+          card:
+            - opacity: 0.35
+    styles:
+      card:
+        - height: 115px
+        - border-radius: 18px
+    view_layout:
+      grid-area: record
+
+  - type: custom:mushroom-template-card
+    entity: sensor.sipgate_io_last_caller
+    primary: Last caller
+    secondary: "{{ states('sensor.sipgate_io_last_caller') }}"
+    icon: mdi:account-arrow-left
+    icon_color: blue
+    tap_action:
+      action: more-info
+    view_layout:
+      grid-area: caller
+
+  - type: custom:mushroom-template-card
+    entity: sensor.sipgate_io_last_call
+    primary: Last call
+    secondary: "{{ states('sensor.sipgate_io_last_call') }}"
+    icon: mdi:phone-log
+    icon_color: purple
+    tap_action:
+      action: more-info
+    view_layout:
+      grid-area: last
+
+  - type: custom:mushroom-title-card
+    title: Click to call
+    subtitle: Replace e14 with your own sipgate extension if needed
+    view_layout:
+      grid-area: dialtitle
+
+  - type: custom:button-card
+    name: Call mobile
+    label: "+447700900123"
+    show_label: true
+    icon: mdi:cellphone
+    tap_action:
+      action: call-service
+      service: sipgate_ha.click_to_call
+      service_data:
+        from: e14
+        to: "+447700900123"
+        caller_id: "+441513200220"
+    styles:
+      card:
+        - height: 115px
+        - border-radius: 18px
+    view_layout:
+      grid-area: dial1
+
+  - type: custom:button-card
+    name: Call office
+    label: "+442071111111"
+    show_label: true
+    icon: mdi:office-building
+    tap_action:
+      action: call-service
+      service: sipgate_ha.click_to_call
+      service_data:
+        from: e14
+        to: "+442071111111"
+        caller_id: "+441513200220"
+    styles:
+      card:
+        - height: 115px
+        - border-radius: 18px
+    view_layout:
+      grid-area: dial2
+
+  - type: custom:mushroom-template-card
+    primary: Outbound number
+    secondary: "+441513200220"
+    icon: mdi:phone-outgoing
+    icon_color: green
+    view_layout:
+      grid-area: outbound
+
+  - type: custom:mushroom-title-card
+    title: Send SMS
+    subtitle: Sender number is configured in sipgate; API uses the Web SMS extension ID
+    view_layout:
+      grid-area: smstitle
+
+  - type: entities
+    entities:
+      - entity: input_text.sipgate_sms_id
+        name: Web SMS extension ID
+      - entity: input_text.sipgate_sms_recipient
+        name: Recipient
+      - entity: input_text.sipgate_sms_message
+        name: Message
+    view_layout:
+      grid-area: smsform
+
+  - type: custom:button-card
+    name: Send SMS
+    icon: mdi:message-arrow-right
+    tap_action:
+      action: call-service
+      service: sipgate_ha.send_sms
+      service_data:
+        sms_id: >
+          [[[
+            return states['input_text.sipgate_sms_id']?.state || 's0';
+          ]]]
+        recipient: >
+          [[[
+            return states['input_text.sipgate_sms_recipient']?.state || '';
+          ]]]
+        message: >
+          [[[
+            return states['input_text.sipgate_sms_message']?.state || '';
+          ]]]
+    styles:
+      card:
+        - height: 115px
+        - border-radius: 18px
+      icon:
+        - color: var(--blue-color)
+    view_layout:
+      grid-area: send
+
+  - type: custom:mushroom-title-card
+    title: Recent calls
+    subtitle: Latest calls returned by sipgate history
+    view_layout:
+      grid-area: historytitle
+
+  - type: markdown
+    content: >-
+      {% set calls =
+        state_attr('sensor.sipgate_io_recent_calls', 'calls') or []
+      %}
+      {% if calls | count == 0 %}
+
+      **No call history available.**
+
+      Check that the PAT has `history:read`.
+
+      {% else %}
+
+      | | From | To | Status | Duration |
+      |:--:|:--|:--|:--|--:|
+      {% for call in calls %}
+      | {% if call.get('direction', '') | lower in ['incoming', 'in'] %}☎️{% else %}📞{% endif %} | {{ call.get('sourceAlias') or call.get('source') or 'Unknown' }} | {{ call.get('targetAlias') or call.get('target') or 'Unknown' }} | {{ call.get('callStatus') or call.get('status') or '—' }}{% if call.get('recordings') %} · 🔴{% endif %} | {% if call.get('duration') is not none %}{{ call.get('duration') }}s{% else %}—{% endif %} |
+      {% endfor %}
+
+      {% endif %}
+    view_layout:
+      grid-area: history

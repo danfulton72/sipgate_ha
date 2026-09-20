@@ -1,0 +1,33 @@
+services:
+  sipgate-bridge:
+    build: .
+    container_name: sipgate-bridge
+    restart: unless-stopped
+    environment:
+      # Home Assistant, reachable from this container.
+      HA_URL: "http://homeassistant:8123"
+      HA_TOKEN: "${HA_TOKEN:?set HA_TOKEN in .env}"
+
+      # Long random string. Forms part of the webhook path so that the URL
+      # is unguessable -- sipgate.io does not sign its webhooks.
+      #   openssl rand -hex 32
+      WEBHOOK_TOKEN: "${WEBHOOK_TOKEN:?set WEBHOOK_TOKEN in .env}"
+
+      # Externally reachable HTTPS prefix INCLUDING the token. This is what
+      # gets baked into the onAnswer/onHangup attributes, so it must be
+      # absolute and resolvable from sipgate's network.
+      PUBLIC_BASE: "${PUBLIC_BASE:?set PUBLIC_BASE in .env}"
+
+      CONTACTS_PATH: "/data/contacts.json"
+      LOG_LEVEL: "INFO"
+    volumes:
+      - ./data:/data:ro
+    ports:
+      # Bind to loopback and let your existing reverse proxy terminate TLS.
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/healthz').status==200 else 1)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3

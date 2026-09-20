@@ -12,6 +12,9 @@ from custom_components.sipgate_ha.const import (
     ATTR_ANNOUNCEMENT,
     ATTR_CALL_ID,
     ATTR_FROM,
+    ATTR_MESSAGE,
+    ATTR_RECIPIENT,
+    ATTR_SMS_ID,
     ATTR_TO,
     CONF_CONTACTS,
     CONF_INCLUDE_OUTGOING,
@@ -22,6 +25,7 @@ from custom_components.sipgate_ha.const import (
     EVENT_CALL_STARTED,
     SERVICE_CLICK_TO_CALL,
     SERVICE_HANG_UP,
+    SERVICE_SEND_SMS,
     SERVICE_START_RECORDING,
     SERVICE_STOP_RECORDING,
 )
@@ -265,3 +269,25 @@ async def test_recording_permission_error(
             {ATTR_CALL_ID: "call-123", ATTR_ANNOUNCEMENT: True},
             blocking=True,
         )
+
+
+async def test_send_sms_action(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Send SMS calls the sessions SMS endpoint."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.post(
+        f"{API_BASE_URL}/sessions/sms",
+        json={"sessionId": "sms-session-123"},
+    )
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SEND_SMS,
+        {
+            ATTR_SMS_ID: "s0",
+            ATTR_RECIPIENT: "+447700900123",
+            ATTR_MESSAGE: "Hello from Home Assistant",
+        },
+        blocking=True,
+    )

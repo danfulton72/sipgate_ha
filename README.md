@@ -54,9 +54,11 @@ The integration creates push-driven entities that update from sipgate webhooks:
 - **Call state** — `idle`, `ringing`, or `answered`, with active calls in attributes.
 - **Last caller** — the most recent incoming caller display/name/number.
 - **Last call** — the most recently ended call and its final cause/metadata.
-- **Recent calls** — the latest 10 CALL history entries, refreshed every five minutes. History attributes include sipgate recording metadata/URLs when present.
+- **Recent calls** — the latest 10 CALL history entries. It refreshes on integration startup and whenever a call ends. Optional periodic polling can be enabled from integration options. History attributes include sipgate recording metadata/URLs when present.
+- **API requests today** — REST API requests attempted by the loaded integration since local midnight.
+- **API requests lifetime** — persisted REST API requests attempted since API usage tracking was introduced.
 
-The recent-history entity requires the PAT scope `history:read`. The webhook-driven call-state entities do not.
+The recent-history entity requires the PAT scope `history:read`. The webhook-driven call-state entities do not. API usage counts include successful and failed REST attempts made by the loaded integration, including startup credential validation and history refreshes.
 
 ## Home Assistant events
 
@@ -194,6 +196,13 @@ significant digits is configurable from 7 to 15.
 Outgoing `newCall` events are ignored by default and can also be enabled from
 integration options.
 
+Call history no longer polls by default. It always refreshes once on startup and
+again when a `hangup` webhook is received. In integration options, set **History
+auto-refresh interval** to `0` to keep periodic polling disabled, or choose a
+value from 1 to 1440 minutes to enable a fallback polling interval. Manual
+`homeassistant.update_entity` calls against the Recent calls sensor still force
+an immediate refresh.
+
 ## Architecture
 
 ```text
@@ -209,6 +218,8 @@ Home Assistant /api/webhook/<random-id>
 Home Assistant
     ├─ push-driven call state entities
     ├─ recent call history ──► GET api.sipgate.com/v2/history
+    │   (startup + hangup; optional timed fallback)
+    ├─ API usage counters ───► persisted locally in Home Assistant
     ├─ hang_up ──────────────► DELETE /v2/calls/<callId>
     ├─ start/stop_recording ─► PUT /v2/calls/<callId>/recording
     ├─ click_to_call ────────► POST /v2/sessions/calls

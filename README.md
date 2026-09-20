@@ -174,7 +174,7 @@ homeassistant:
 Then copy the example to `/config/packages/sipgate.yaml`, update the notify
 action, and restart Home Assistant.
 
-A demonstration Lovelace view is included at [`examples/sipgate_dashboard.yaml`](examples/sipgate_dashboard.yaml). It uses the package SMS helpers and sets the outbound caller ID to `+441513200220`.
+A demonstration Lovelace view is included at [`examples/sipgate_dashboard.yaml`](examples/sipgate_dashboard.yaml). It uses Mushroom, layout-card, button-card, card-mod, and Flex Table Card; uses the package SMS helpers; and sets the outbound caller ID to `+441513200220`. The recent-calls section is rendered as a phone-style log with relative timestamps, missed/answered status, duration, direction, and clickable recording links when sipgate returns a usable recording URL.
 
 ## Caller names
 

@@ -62,7 +62,7 @@ async def test_authorization_error(hass: HomeAssistant, aioclient_mock) -> None:
         await client.async_hang_up("call-123")
 
 
-def test_invalid_token_id_format(hass: HomeAssistant) -> None:
+async def test_invalid_token_id_format(hass: HomeAssistant) -> None:
     """Token IDs containing a colon are rejected before any request is made."""
     with pytest.raises(SipgateCredentialFormatError) as err:
         SipgateClient(
@@ -74,7 +74,7 @@ def test_invalid_token_id_format(hass: HomeAssistant) -> None:
     assert err.value.field == "token_id"
 
 
-def test_empty_token_rejected(hass: HomeAssistant) -> None:
+async def test_empty_token_rejected(hass: HomeAssistant) -> None:
     """An empty PAT secret is rejected before any request is made."""
     with pytest.raises(SipgateCredentialFormatError) as err:
         SipgateClient(async_get_clientsession(hass), "token-id", "")

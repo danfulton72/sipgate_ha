@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Home Assistant side of the sipgate call notifier.
+#
+# Split these between configuration.yaml (rest_command) and automations.yaml
+# (the automation block), or keep them together with a packages/ include.
+#
+# Replace notify.mobile_app_YOUR_PHONE throughout with your actual device.
+# ---------------------------------------------------------------------------
+
+# secrets.yaml needs:
+#   sipgate_auth: "Basic <base64 of tokenId:token>"
+# Generate with:
+#   printf 'token-XXXX-0:your-personal-access-token' | base64 -w0
+rest_command:
+  sipgate_hangup:
+    url: "https://api.sipgate.com/v2/calls/{{ call_id }}"
+    method: delete
+    headers:
+      Authorization: !secret sipgate_auth
+      Content-Type: application/json
+
+  # Optional: divert a ringing call to voicemail instead of killing it.
+  # Only works if the call is already established; see README caveats.
+  sipgate_transfer:
+    url: "https://api.sipgate.com/v2/calls/{{ call_id }}/transfer"
+    method: post
+    headers:
+      Authorization: !secret sipgate_auth
+      Content-Type: application/json
+    payload: '{"attended": false, "phoneNumber": "{{ target }}"}'
+
+automation:
+  # -------------------------------------------------------------------------
+  # 1. Incoming call -> actionable notification
+  # -------------------------------------------------------------------------
+  - id: sipgate_incoming_call_notify
+    alias: "Sipgate: notify on incoming call"
+    mode: parallel
+    max: 5
+    trigger:
+      - platform: event
+        event_type: sipgate_call_started
+    condition:
+      - condition: template
+        value_template: "{{ trigger.event.data.direction == 'in' }}"
+    variables:
+      call_id: "{{ trigger.event.data.call_id }}"
+      display: "{{ trigger.event.data.display }}"
+    action:
+      - service: notify.mobile_app_YOUR_PHONE
+        data:
+          title: >-
+            {% if trigger.event.data.known %}
+              Incoming call
+            {% else %}
+              Incoming call (unknown)
+            {% endif %}
+          message: "{{ display }}"
+          data:
+            # Same tag is used to clear the notification later.
+            tag: "sipgate-{{ call_id }}"
+            group: sipgate-calls
+            channel: Calls
+            importance: high
+            priority: high
+            ttl: 0
+            # Android: survives until we explicitly clear it.
+            persistent: true
+            sticky: true
+            # iOS: make it cut through a Focus mode.
+            push:
+              interruption-level: time-sensitive
+            # The call_id has to ride along inside the action string, because
+            # that is the one field every companion-app version echoes back
+            # reliably in mobile_app_notification_action.
+            actions:
+              - action: "SIPGATE_HANGUP_{{ call_id }}"
+                title: "Hang up"
+                destructive: true
+              - action: "URI"
+                title: "Look up"
+                uri: >-
+                  https://www.tellows.co.uk/num/{{ trigger.event.data.from | default('', true) | replace('+', '') }}
+
+      # Optional extras -- uncomment what you want.
+      # - service: light.turn_on
+      #   target: {entity_id: light.hallway}
+      #   data: {flash: short}
+      # - service: tts.speak
+      #   target: {entity_id: tts.piper}
+      #   data:
+      #     media_player_entity_id: media_player.kitchen
+      #     message: "Call from {{ trigger.event.data.name | default('an unknown number') }}"
+
+  # -------------------------------------------------------------------------
+  # 2. "Hang up" tapped -> DELETE /v2/calls/{callId}
+  # -------------------------------------------------------------------------
+  - id: sipgate_hangup_from_notification
+    alias: "Sipgate: hang up from notification"
+    mode: parallel
+    max: 5
+    trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.event.data.action is defined
+             and trigger.event.data.action.startswith('SIPGATE_HANGUP_') }}
+    variables:
+      call_id: "{{ trigger.event.data.action.split('SIPGATE_HANGUP_')[1] }}"
+    action:
+      - service: rest_command.sipgate_hangup
+        data:
+          call_id: "{{ call_id }}"
+        response_variable: result
+      - choose:
+          - conditions: "{{ result.status not in [200, 204] }}"
+            sequence:
+              - service: persistent_notification.create
+                data:
+                  title: "Sipgate hangup failed"
+                  message: >-
+                    Call {{ call_id }} returned HTTP {{ result.status }}.
+                    The call may already have ended, or a ringing call may not
+                    be manipulable via RTCM on your account.
+      - service: notify.mobile_app_YOUR_PHONE
+        data:
+          message: clear_notification
+          data:
+            tag: "sipgate-{{ call_id }}"
+
+  # -------------------------------------------------------------------------
+  # 3. Call answered or ended -> clear the notification
+  # -------------------------------------------------------------------------
+  - id: sipgate_clear_call_notification
+    alias: "Sipgate: clear call notification"
+    mode: parallel
+    max: 5
+    trigger:
+      - platform: event
+        event_type: sipgate_call_answered
+      - platform: event
+        event_type: sipgate_call_ended
+    action:
+      - service: notify.mobile_app_YOUR_PHONE
+        data:
+          message: clear_notification
+          data:
+            tag: "sipgate-{{ trigger.event.data.call_id }}"
+
+  # -------------------------------------------------------------------------
+  # 4. Optional: log missed calls so you have a history
+  # -------------------------------------------------------------------------
+  - id: sipgate_log_missed_call
+    alias: "Sipgate: log missed call"
+    trigger:
+      - platform: event
+        event_type: sipgate_call_ended
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.event.data.direction == 'in'
+             and trigger.event.data.cause in ['cancel', 'noAnswer', 'busy'] }}
+    action:
+      - service: logbook.log
+        data:
+          name: "Missed call"
+          message: "{{ trigger.event.data.from | default('withheld') }} ({{ trigger.event.data.cause }})"

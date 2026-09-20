@@ -89,6 +89,24 @@ async def test_missing_account_scope(hass: HomeAssistant, aioclient_mock) -> Non
     assert result["errors"] == {"base": "missing_account_scope"}
 
 
+async def test_invalid_token_id_format(hass: HomeAssistant) -> None:
+    """A combined ID:secret value is reported on the token-ID field."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_TOKEN_ID: "token-test-0:secret-token",
+            CONF_TOKEN: "secret-token",
+            CONF_PUBLIC_URL: "https://ha.example.com",
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_TOKEN_ID: "invalid_token_id"}
+
+
 async def test_invalid_public_url(hass: HomeAssistant) -> None:
     """A non-URL public address is rejected before contacting sipgate."""
     result = await hass.config_entries.flow.async_init(

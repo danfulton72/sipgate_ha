@@ -88,58 +88,31 @@ data:
 ```
 
 sipgate documents `DELETE /v2/calls/{callId}` for terminating a running call.
-Whether an unanswered inbound call is already considered a manipulable running
-call can depend on sipgate's RTCM behaviour, so test the Hang up action while a
-call is ringing before relying on it.
+The `sipgate_ha.hang_up` action has been verified against a live incoming
+sipgate call, including while the call is ringing.
 
-## Actionable mobile notification example
+## Actionable mobile notification package
+
+A complete package is included at
+[`examples/sipgate_package.yaml`](examples/sipgate_package.yaml). It:
+
+- shows an incoming-call notification using the resolved caller name/number;
+- provides **OK** and **Hang up** buttons;
+- calls `sipgate_ha.hang_up` for the Hang up action;
+- clears the notification when the user presses OK, the call is answered, or
+  the call ends.
 
 Replace `notify.mobile_app_your_phone` with your Companion App notify action.
 
-```yaml
-alias: "Sipgate: incoming call"
-mode: parallel
-triggers:
-  - trigger: event
-    event_type: sipgate_call_started
-actions:
-  - action: notify.mobile_app_your_phone
-    data:
-      title: Incoming call
-      message: "{{ trigger.event.data.display }}"
-      data:
-        tag: "sipgate-{{ trigger.event.data.call_id }}"
-        importance: high
-        priority: high
-        ttl: 0
-        actions:
-          - action: "SIPGATE_HANGUP_{{ trigger.event.data.call_id }}"
-            title: Hang up
-            destructive: true
-```
-
-And handle the button:
+If you use Home Assistant packages, enable them once in `configuration.yaml`:
 
 ```yaml
-alias: "Sipgate: hang up from notification"
-mode: parallel
-triggers:
-  - trigger: event
-    event_type: mobile_app_notification_action
-conditions:
-  - condition: template
-    value_template: >-
-      {{ trigger.event.data.action is defined and
-         trigger.event.data.action.startswith('SIPGATE_HANGUP_') }}
-actions:
-  - action: sipgate_ha.hang_up
-    data:
-      call_id: >-
-        {{ trigger.event.data.action.split('SIPGATE_HANGUP_')[1] }}
+homeassistant:
+  packages: !include_dir_named packages
 ```
 
-You can clear the notification on either `sipgate_call_answered` or
-`sipgate_call_ended` using the same notification tag.
+Then copy the example to `/config/packages/sipgate.yaml`, update the notify
+action, and restart Home Assistant.
 
 ## Caller names
 
@@ -193,6 +166,16 @@ pytest --cov=custom_components/sipgate_ha --cov-report=term-missing
 ```
 
 CI runs the same checks on every pull request and push to `main`.
+
+## Troubleshooting
+
+If setup fails before sipgate is contacted, make sure **Personal Access Token
+ID** contains only the token ID, such as `token-ABC123-0`. Do not paste a
+combined `ID:secret` value or a complete `Basic ...` authorization header.
+
+The integration reports invalid PAT format, rejected credentials,
+missing `account:read`, connection failures, and unexpected sipgate HTTP
+responses separately.
 
 ## Security and privacy
 

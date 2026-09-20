@@ -7,10 +7,9 @@ from http import HTTPStatus
 from typing import Any
 
 from aiohttp.web import Request, Response
-from multidict import MultiDictProxy
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from multidict import MultiDictProxy
 
 from .const import (
     CONF_CONTACTS,

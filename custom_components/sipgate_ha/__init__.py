@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-import logging
 
 import voluptuous as vol
-
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_TOKEN, CONF_WEBHOOK_ID
@@ -39,7 +37,7 @@ from .const import (
 from .helpers import build_webhook_url
 from .webhook import async_handle_webhook
 
-_LOGGER = logging.getLogger(__name__)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 @dataclass(slots=True)

@@ -39,7 +39,7 @@ During the UI setup flow enter:
 - your externally reachable Home Assistant base URL, for example
   `https://ha.example.com` or your Home Assistant Cloud remote URL.
 
-The integration validates the PAT against sipgate's documented account endpoint and
+The integration validates the PAT against sipgate's current-user endpoint and
 then generates a cryptographically random Home Assistant webhook ID. The final
 setup step displays the complete webhook URL.
 

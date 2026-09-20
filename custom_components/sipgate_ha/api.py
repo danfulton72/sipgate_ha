@@ -156,7 +156,9 @@ class SipgateClient:
             "/history",
             params={"types": "CALL", "limit": limit},
         )
-        if not isinstance(response, dict) or not isinstance(response.get("items"), list):
+        if not isinstance(response, dict) or not isinstance(
+            response.get("items"), list
+        ):
             raise SipgateApiError(HTTPStatus.OK, "Unexpected history response")
 
         calls: list[dict[str, Any]] = []

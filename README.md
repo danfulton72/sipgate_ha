@@ -9,7 +9,7 @@ no YAML required to configure the integration itself.
 
 - Home Assistant **2026.9.0 or newer**.
 - A sipgate account with sipgate.io push webhooks enabled.
-- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, and `sessions:calls:write` for click-to-call.
+- A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS.
 - A Home Assistant URL that sipgate can reach from the internet. HTTPS is
   strongly recommended by sipgate.
 
@@ -135,6 +135,22 @@ data:
 
 sipgate rings the source endpoint first. After it is answered, sipgate calls the destination.
 
+For this installation, the outbound caller ID is `+441513200220`.
+
+### Send SMS
+
+SMS requires `sessions:sms:write` and a sipgate Web SMS extension ID such as `s0`.
+
+```yaml
+action: sipgate_ha.send_sms
+data:
+  sms_id: s0
+  recipient: "+447700900123"
+  message: "Hello from Home Assistant"
+```
+
+The API uses `sms_id` to select the Web SMS extension. The visible sender number is configured and verified in sipgate rather than sent in this API request.
+
 ## Actionable mobile notification package
 
 A complete package is included at
@@ -193,7 +209,8 @@ Home Assistant
     ├─ recent call history ──► GET api.sipgate.com/v2/history
     ├─ hang_up ──────────────► DELETE /v2/calls/<callId>
     ├─ start/stop_recording ─► PUT /v2/calls/<callId>/recording
-    └─ click_to_call ────────► POST /v2/sessions/calls
+    ├─ click_to_call ────────► POST /v2/sessions/calls
+    └─ send_sms ──────────────► POST /v2/sessions/sms
 ```
 
 The `newCall` path intentionally performs no outbound API request before

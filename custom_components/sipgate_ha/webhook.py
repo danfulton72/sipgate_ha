@@ -154,5 +154,7 @@ def _handle_hangup(
             "answering_number": to_e164(_string(form, "answeringNumber")),
         }
     )
-    _runtime(entry).call_state.ended(data)
+    runtime = _runtime(entry)
+    runtime.call_state.ended(data)
     hass.bus.async_fire(EVENT_CALL_ENDED, data)
+    hass.async_create_task(runtime.history_coordinator.async_request_refresh())

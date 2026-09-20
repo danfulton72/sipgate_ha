@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -40,14 +40,14 @@ from .const import (
     DOMAIN,
     NAME,
 )
-_LOGGER = logging.getLogger(__name__)
-
 from .helpers import (
     InvalidPublicUrl,
     build_webhook_url,
     normalize_public_url,
     parse_contacts,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 TOKEN_SELECTOR = TextSelector(
     TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password")

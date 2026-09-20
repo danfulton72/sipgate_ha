@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.const import CONF_TOKEN, CONF_WEBHOOK_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -200,6 +200,10 @@ async def test_reauth_flow(
     assert not result["errors"]
 
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(
+        f"{API_BASE_URL}/history",
+        json={"items": [], "totalCount": 0},
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -212,6 +216,11 @@ async def test_reauth_flow(
     assert result["reason"] == "reauth_successful"
     assert mock_config_entry.data[CONF_TOKEN_ID] == "token-reauth-0"
     assert mock_config_entry.data[CONF_TOKEN] == "reauth-secret"
+
+    await hass.async_block_till_done()
+    if mock_config_entry.state is ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
 
 
 async def test_reconfigure_flow(

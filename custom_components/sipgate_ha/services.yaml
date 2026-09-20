@@ -5,3 +5,48 @@ hang_up:
       example: ABC123DEF456
       selector:
         text:
+
+start_recording:
+  fields:
+    call_id:
+      required: true
+      example: ABC123DEF456
+      selector:
+        text:
+    announcement:
+      default: true
+      selector:
+        boolean:
+
+stop_recording:
+  fields:
+    call_id:
+      required: true
+      example: ABC123DEF456
+      selector:
+        text:
+    announcement:
+      default: false
+      selector:
+        boolean:
+
+click_to_call:
+  fields:
+    from:
+      required: true
+      example: e14
+      selector:
+        text:
+    to:
+      required: true
+      example: "+442071234567"
+      selector:
+        text:
+    device_id:
+      example: e14
+      selector:
+        text:
+    caller_id:
+      example: "+442079876543"
+      selector:
+        text:

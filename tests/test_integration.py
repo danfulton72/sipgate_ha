@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.sipgate_ha.const import (
     API_BASE_URL,
+    ATTR_ANNOUNCEMENT,
     ATTR_CALL_ID,
+    ATTR_FROM,
+    ATTR_TO,
     CONF_CONTACTS,
     CONF_INCLUDE_OUTGOING,
     CONF_SIGNIFICANT_DIGITS,
@@ -15,13 +20,20 @@ from custom_components.sipgate_ha.const import (
     EVENT_CALL_ANSWERED,
     EVENT_CALL_ENDED,
     EVENT_CALL_STARTED,
+    SERVICE_CLICK_TO_CALL,
     SERVICE_HANG_UP,
+    SERVICE_START_RECORDING,
+    SERVICE_STOP_RECORDING,
 )
 
 
 async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     """Set up a config entry with successful sipgate validation."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(
+        f"{API_BASE_URL}/history",
+        json={"items": [], "totalCount": 0},
+    )
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
@@ -192,3 +204,64 @@ async def test_unknown_webhook_event(
     assert response.status == 204
     await hass.async_block_till_done()
     assert started == []
+
+
+async def test_recording_actions(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Start and stop recording call the RTCM recording endpoint."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-123/recording", status=204)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_START_RECORDING,
+        {ATTR_CALL_ID: "call-123", ATTR_ANNOUNCEMENT: True},
+        blocking=True,
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_STOP_RECORDING,
+        {ATTR_CALL_ID: "call-123", ATTR_ANNOUNCEMENT: False},
+        blocking=True,
+    )
+
+
+async def test_click_to_call_action(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Click-to-call uses the sessions API and creates outgoing call state."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.post(
+        f"{API_BASE_URL}/sessions/calls", json={"sessionId": "session-123"}
+    )
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_CLICK_TO_CALL,
+        {
+            ATTR_FROM: "e14",
+            ATTR_TO: "+442071234567",
+        },
+        blocking=True,
+    )
+
+    runtime = mock_config_entry.runtime_data
+    assert runtime.call_state.current_call["call_id"] == "session-123"
+    assert runtime.call_state.state == "ringing"
+
+
+async def test_recording_permission_error(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """RTCM permission failures become useful Home Assistant action errors."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-123/recording", status=403)
+
+    with pytest.raises(HomeAssistantError, match="permission"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_START_RECORDING,
+            {ATTR_CALL_ID: "call-123", ATTR_ANNOUNCEMENT: True},
+            blocking=True,
+        )

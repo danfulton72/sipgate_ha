@@ -20,7 +20,7 @@ from custom_components.sipgate_ha.const import (
 
 async def test_user_flow(hass: HomeAssistant, aioclient_mock) -> None:
     """A valid PAT leads to a webhook confirmation and config entry."""
-    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
@@ -51,7 +51,7 @@ async def test_user_flow(hass: HomeAssistant, aioclient_mock) -> None:
 
 async def test_invalid_auth(hass: HomeAssistant, aioclient_mock) -> None:
     """Invalid PAT credentials are reported in the setup form."""
-    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", status=401)
+    aioclient_mock.get(f"{API_BASE_URL}/account", status=401)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
@@ -135,7 +135,7 @@ async def test_duplicate_setup_aborts(hass: HomeAssistant, mock_config_entry) ->
 async def test_unexpected_api_error(hass: HomeAssistant, aioclient_mock) -> None:
     """Unexpected sipgate HTTP failures stay on the setup form."""
     aioclient_mock.get(
-        f"{API_BASE_URL}/authorization/userinfo", status=500, text="server error"
+        f"{API_BASE_URL}/account", status=500, text="server error"
     )
 
     result = await hass.config_entries.flow.async_init(
@@ -163,7 +163,7 @@ async def test_reauth_flow(
     assert result["step_id"] == "reauth_confirm"
     assert not result["errors"]
 
-    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
@@ -182,7 +182,7 @@ async def test_reconfigure_flow(
     hass: HomeAssistant, mock_config_entry, aioclient_mock
 ) -> None:
     """Reconfigure updates credentials and the public URL without rotating the hook."""
-    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
     original_webhook_id = mock_config_entry.data[CONF_WEBHOOK_ID]
 
     result = await mock_config_entry.start_reconfigure_flow(hass)

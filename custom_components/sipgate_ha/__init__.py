@@ -78,9 +78,7 @@ def _get_runtime(hass: HomeAssistant) -> SipgateRuntimeData:
 def _raise_service_error(err: Exception) -> None:
     """Translate API exceptions into Home Assistant action errors."""
     if isinstance(err, SipgateAuthenticationError):
-        raise HomeAssistantError(
-            "sipgate rejected the configured credentials"
-        ) from err
+        raise HomeAssistantError("sipgate rejected the configured credentials") from err
     if isinstance(err, SipgateAuthorizationError):
         raise HomeAssistantError(
             "The sipgate token does not have permission for this action"

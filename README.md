@@ -58,7 +58,7 @@ The integration creates push-driven entities that update from sipgate webhooks:
 - **API requests today** — REST API requests attempted by the loaded integration since local midnight.
 - **API requests lifetime** — persisted REST API requests attempted since API usage tracking was introduced.
 
-The recent-history entity requires the PAT scope `history:read`. The webhook-driven call-state entities do not. API usage counts include successful and failed REST attempts made by the loaded integration, including startup credential validation and history refreshes.
+The recent-history entity requires the PAT scope `history:read`. The webhook-driven call-state entities do not. API usage counts include successful and failed REST attempts made by the loaded integration, including startup credential validation and history refreshes. Lifetime tracking starts when version 1.3.0 is installed and cannot reconstruct requests made by older versions.
 
 ## Home Assistant events
 

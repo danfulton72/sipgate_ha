@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -39,6 +40,8 @@ from .const import (
     DOMAIN,
     NAME,
 )
+_LOGGER = logging.getLogger(__name__)
+
 from .helpers import (
     InvalidPublicUrl,
     build_webhook_url,
@@ -68,10 +71,13 @@ async def _async_validate_credentials(
     except SipgateAuthenticationError:
         return {"base": "invalid_auth"}
     except SipgateAuthorizationError:
-        return {"base": "invalid_auth"}
+        return {"base": "missing_account_scope"}
     except SipgateConnectionError:
         return {"base": "cannot_connect"}
-    except SipgateApiError:
+    except SipgateApiError as err:
+        _LOGGER.warning(
+            "sipgate PAT validation returned unexpected HTTP status %s", err.status
+        )
         return {"base": "unknown"}
     return {}
 

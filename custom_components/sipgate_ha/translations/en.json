@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to sipgate.io",
-        "description": "Create a sipgate Personal Access Token with `account:read`. Add `rtcm:write` for Hang up/recording, `history:read` for call history, and `sessions:calls:write` for click-to-call.",
+        "description": "Create a sipgate Personal Access Token with `account:read`. Add `rtcm:write` for Hang up/recording, `history:read` for call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS.",
         "data": {
           "token_id": "Personal Access Token ID",
           "token": "Personal Access Token",
@@ -131,6 +131,24 @@
         "caller_id": {
           "name": "Caller ID",
           "description": "Optional caller ID presented to the destination."
+        }
+      }
+    },
+    "send_sms": {
+      "name": "Send SMS",
+      "description": "Send an SMS through a sipgate Web SMS extension.",
+      "fields": {
+        "sms_id": {
+          "name": "SMS ID",
+          "description": "The sipgate Web SMS extension ID, for example s0."
+        },
+        "recipient": {
+          "name": "Recipient",
+          "description": "Destination mobile number, preferably E.164."
+        },
+        "message": {
+          "name": "Message",
+          "description": "SMS message text."
         }
       }
     }

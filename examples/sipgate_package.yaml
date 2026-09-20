@@ -1,0 +1,152 @@
+###############################################################################
+# sipgate.io Home Assistant package
+#
+# Copy to /config/packages/sipgate.yaml and replace:
+#   notify.mobile_app_your_phone
+# with your actual Home Assistant Companion App notify action.
+#
+# Enable packages in configuration.yaml with:
+#
+# homeassistant:
+#   packages: !include_dir_named packages
+###############################################################################
+
+automation:
+
+  ###########################################################################
+  # Incoming call notification
+  ###########################################################################
+
+  - id: sipgate_incoming_call_notification
+    alias: "Sipgate - Incoming call notification"
+    description: "Show an actionable notification for incoming sipgate calls."
+    mode: parallel
+    max: 10
+
+    triggers:
+      - trigger: event
+        event_type: sipgate_call_started
+
+    conditions:
+      - condition: template
+        value_template: >
+          {{ trigger.event.data.direction == 'in' }}
+
+    actions:
+      - action: notify.mobile_app_your_phone
+        data:
+          title: >-
+            {% if trigger.event.data.known %}
+              Incoming call - {{ trigger.event.data.name }}
+            {% else %}
+              Incoming call
+            {% endif %}
+          message: "{{ trigger.event.data.display }}"
+          data:
+            tag: "sipgate-{{ trigger.event.data.call_id }}"
+            persistent: true
+            sticky: true
+            priority: high
+            ttl: 0
+            importance: high
+            push:
+              interruption-level: time-sensitive
+            actions:
+              - action: "SIPGATE_OK_{{ trigger.event.data.call_id }}"
+                title: "OK"
+              - action: "SIPGATE_HANGUP_{{ trigger.event.data.call_id }}"
+                title: "Hang up"
+                destructive: true
+
+  ###########################################################################
+  # Handle notification buttons
+  ###########################################################################
+
+  - id: sipgate_notification_actions
+    alias: "Sipgate - Notification actions"
+    description: "Handle OK and Hang up buttons from the call notification."
+    mode: parallel
+    max: 10
+
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{
+                    trigger.event.data.action is defined
+                    and trigger.event.data.action.startswith('SIPGATE_OK_')
+                  }}
+            sequence:
+              - variables:
+                  call_id: >-
+                    {{ trigger.event.data.action | replace('SIPGATE_OK_', '') }}
+              - action: notify.mobile_app_your_phone
+                data:
+                  message: clear_notification
+                  data:
+                    tag: "sipgate-{{ call_id }}"
+
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{
+                    trigger.event.data.action is defined
+                    and trigger.event.data.action.startswith('SIPGATE_HANGUP_')
+                  }}
+            sequence:
+              - variables:
+                  call_id: >-
+                    {{ trigger.event.data.action | replace('SIPGATE_HANGUP_', '') }}
+              - action: sipgate_ha.hang_up
+                data:
+                  call_id: "{{ call_id }}"
+              - action: notify.mobile_app_your_phone
+                data:
+                  message: clear_notification
+                  data:
+                    tag: "sipgate-{{ call_id }}"
+
+  ###########################################################################
+  # Clear notification when call is answered
+  ###########################################################################
+
+  - id: sipgate_clear_notification_answered
+    alias: "Sipgate - Clear notification when answered"
+    mode: parallel
+    max: 10
+
+    triggers:
+      - trigger: event
+        event_type: sipgate_call_answered
+
+    actions:
+      - action: notify.mobile_app_your_phone
+        data:
+          message: clear_notification
+          data:
+            tag: "sipgate-{{ trigger.event.data.call_id }}"
+
+  ###########################################################################
+  # Clear notification when call ends
+  ###########################################################################
+
+  - id: sipgate_clear_notification_ended
+    alias: "Sipgate - Clear notification when call ends"
+    mode: parallel
+    max: 10
+
+    triggers:
+      - trigger: event
+        event_type: sipgate_call_ended
+
+    actions:
+      - action: notify.mobile_app_your_phone
+        data:
+          message: clear_notification
+          data:
+            tag: "sipgate-{{ trigger.event.data.call_id }}"

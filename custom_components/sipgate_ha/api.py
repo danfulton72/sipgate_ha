@@ -149,6 +149,28 @@ class SipgateClient:
             return str(session_id) if session_id else None
         return None
 
+    async def async_send_sms(
+        self,
+        *,
+        sms_id: str,
+        recipient: str,
+        message: str,
+    ) -> str | None:
+        """Send an SMS and return its session ID when sipgate supplies one."""
+        response = await self._request(
+            "POST",
+            "/sessions/sms",
+            json_data={
+                "smsId": sms_id,
+                "recipient": recipient,
+                "message": message,
+            },
+        )
+        if isinstance(response, dict):
+            session_id = response.get("sessionId")
+            return str(session_id) if session_id else None
+        return None
+
     async def async_get_call_history(self, limit: int) -> list[dict[str, Any]]:
         """Return a bounded list of recent CALL history entries."""
         response = await self._request(

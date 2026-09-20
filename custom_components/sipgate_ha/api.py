@@ -100,7 +100,7 @@ class SipgateClient:
 
                 try:
                     return json.loads(body)
-                except (json.JSONDecodeError, UnicodeDecodeError):
+                except json.JSONDecodeError, UnicodeDecodeError:
                     return body.decode(errors="replace")
         except SipgateError:
             raise

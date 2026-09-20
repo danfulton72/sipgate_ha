@@ -13,6 +13,7 @@ async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
+        repeat=True,
         json={
             "items": [
                 {
@@ -56,8 +57,26 @@ async def test_entities_follow_webhooks(
     history_id = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{mock_config_entry.entry_id}_recent_calls"
     )
+    api_today_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{mock_config_entry.entry_id}_api_requests_today"
+    )
+    api_lifetime_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{mock_config_entry.entry_id}_api_requests_lifetime"
+    )
 
-    assert active_id and state_id and caller_id and last_call_id and history_id
+    assert all(
+        (
+            active_id,
+            state_id,
+            caller_id,
+            last_call_id,
+            history_id,
+            api_today_id,
+            api_lifetime_id,
+        )
+    )
+    assert hass.states.get(api_today_id).state == "2"
+    assert hass.states.get(api_lifetime_id).state == "2"
     client = await hass_client()
 
     await client.post(
@@ -104,3 +123,5 @@ async def test_entities_follow_webhooks(
     assert hass.states.get(last_call_id).state == "normalClearing"
     assert hass.states.get(history_id).state == "1"
     assert hass.states.get(history_id).attributes["calls"][0]["callId"] == "old-call"
+    assert hass.states.get(api_today_id).state == "3"
+    assert hass.states.get(api_lifetime_id).state == "3"

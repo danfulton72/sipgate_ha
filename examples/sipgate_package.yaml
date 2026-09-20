@@ -171,4 +171,4 @@ input_text:
   sipgate_sms_message:
     name: Sipgate SMS message
     icon: mdi:message-text
-    max: 320
+    max: 255

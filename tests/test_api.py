@@ -163,9 +163,7 @@ async def test_click_to_call_without_session_id(
     assert session_id is None
 
 
-async def test_unexpected_history_response(
-    hass: HomeAssistant, aioclient_mock
-) -> None:
+async def test_unexpected_history_response(hass: HomeAssistant, aioclient_mock) -> None:
     """Malformed history payloads are surfaced as API errors."""
     aioclient_mock.get(f"{API_BASE_URL}/history", json={"unexpected": []})
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")

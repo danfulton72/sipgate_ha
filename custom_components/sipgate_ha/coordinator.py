@@ -19,6 +19,7 @@ from .api import (
 from .const import DEFAULT_HISTORY_LIMIT, NAME
 
 _LOGGER = logging.getLogger(__name__)
+HISTORY_UPDATE_INTERVAL = timedelta(minutes=5)
 
 
 class SipgateHistoryCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
@@ -30,7 +31,7 @@ class SipgateHistoryCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
             hass,
             logger=_LOGGER,
             name=f"{NAME} call history",
-            update_interval=timedelta(minutes=5),
+            update_interval=HISTORY_UPDATE_INTERVAL,
         )
         self.client = client
         self.data = []

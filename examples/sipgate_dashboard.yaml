@@ -319,25 +319,180 @@ cards:
     view_layout:
       grid-area: historytitle
 
-  - type: markdown
-    content: >-
-      {% set calls =
-        state_attr('sensor.sipgate_io_recent_calls', 'calls') or []
-      %}
-      {% if calls | count == 0 %}
+  - type: custom:flex-table-card
+    entities:
+      - sensor.sipgate_io_recent_calls
+    max_rows: 10
+    sort_by: when-
+    disable_header_sort: false
+    selectable: true
 
-      **No call history available.**
+    columns:
+      - name: When
+        id: when
+        data: calls.created
+        sort_unmodified: true
+        modify: >-
+          (() => {
+            const d = new Date(x);
+            if (Number.isNaN(d.getTime())) return x || '—';
+            const now = new Date();
+            const today = new Date(
+              now.getFullYear(), now.getMonth(), now.getDate()
+            );
+            const day = new Date(
+              d.getFullYear(), d.getMonth(), d.getDate()
+            );
+            const diff = Math.round((today - day) / 86400000);
+            const time = d.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+            if (diff === 0) return `Today ${time}`;
+            if (diff === 1) return `Yesterday ${time}`;
+            if (diff > 1 && diff < 7) {
+              return `${d.toLocaleDateString([], {
+                weekday: 'short'
+              })} ${time}`;
+            }
+            return `${d.toLocaleDateString([], {
+              day: '2-digit',
+              month: 'short'
+            })} ${time}`;
+          })()
 
-      Check that the PAT has `history:read`.
+      - name: ""
+        id: direction
+        data: calls
+        align: center
+        modify: >-
+          (() => {
+            const direction = String(x.direction || '').toLowerCase();
+            const incoming = direction.includes('in') || x.incoming === true;
+            const status = String(
+              x.callStatus || x.status || ''
+            ).toUpperCase();
+            const missed = status === 'NOPICKUP' && incoming;
+            const colour = missed
+              ? 'var(--error-color)'
+              : incoming
+                ? 'var(--info-color, var(--primary-color))'
+                : 'var(--primary-color)';
+            return `<span style="font-size:20px;color:${colour}">${incoming ? '↙' : '↗'}</span>`;
+          })()
 
-      {% else %}
+      - name: Party
+        id: party
+        data: calls
+        modify: >-
+          (() => {
+            const direction = String(x.direction || '').toLowerCase();
+            const incoming = direction.includes('in') || x.incoming === true;
+            const status = String(
+              x.callStatus || x.status || ''
+            ).toUpperCase();
+            const missed = status === 'NOPICKUP' && incoming;
+            const alias = incoming ? x.sourceAlias : x.targetAlias;
+            const number = incoming ? x.source : x.target;
+            const local = incoming
+              ? (x.targetAlias || x.target || '+441513200220')
+              : (x.sourceAlias || x.source || '+441513200220');
+            const label = alias || number || 'Unknown';
+            const detail = alias && number ? number : '';
+            const esc = value => String(value || '')
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;');
+            const route = `${incoming ? 'Incoming to' : 'Outgoing from'} ${esc(local)}`;
+            const colour = missed
+              ? 'var(--error-color)'
+              : 'var(--primary-text-color)';
+            return `<div style="line-height:1.25"><div style="font-weight:600;color:${colour}">${esc(label)}</div>${detail ? `<div style="font-size:12px;color:var(--secondary-text-color)">${esc(detail)}</div>` : ''}<div style="font-size:11px;color:var(--secondary-text-color);opacity:.8">${route}</div></div>`;
+          })()
 
-      | | From | To | Status | Duration |
-      |:--:|:--|:--|:--|--:|
-      {% for call in calls %}
-      | {% if call.get('direction', '') | lower in ['incoming', 'in'] %}☎️{% else %}📞{% endif %} | {{ call.get('sourceAlias') or call.get('source') or 'Unknown' }} | {{ call.get('targetAlias') or call.get('target') or 'Unknown' }} | {{ call.get('callStatus') or call.get('status') or '—' }}{% if call.get('recordings') %} · 🔴{% endif %} | {% if call.get('duration') is not none %}{{ call.get('duration') }}s{% else %}—{% endif %} |
-      {% endfor %}
+      - name: Result
+        id: result
+        data: calls
+        modify: >-
+          (() => {
+            const status = String(
+              x.callStatus || x.status || ''
+            ).toUpperCase();
+            if (status === 'PICKUP') {
+              return '<span style="color:var(--success-color, var(--green-color));font-weight:600">Answered</span>';
+            }
+            if (status === 'NOPICKUP') {
+              return '<span style="color:var(--error-color);font-weight:600">Missed</span>';
+            }
+            const safe = status
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;');
+            return safe || '—';
+          })()
 
-      {% endif %}
+      - name: Duration
+        id: duration
+        data: calls.duration
+        fmt: duration
+        align: right
+
+      - name: Rec
+        id: recording
+        data: calls
+        align: center
+        modify: >-
+          (() => {
+            const recordings = Array.isArray(x.recordings)
+              ? x.recordings
+              : [];
+            const recording = recordings.find(
+              item => item && (
+                item.url ||
+                item.recordingUrl ||
+                item.downloadUrl
+              )
+            );
+            if (!recording) return '';
+            const url = String(
+              recording.url ||
+              recording.recordingUrl ||
+              recording.downloadUrl
+            );
+            if (!/^https?:\\/\\//i.test(url)) return '●';
+            const safe = url
+              .replaceAll('&', '&amp;')
+              .replaceAll('"', '&quot;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;');
+            return `<a href="${safe}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;font-size:18px" title="Open recording">▶</a>`;
+          })()
+
+    css:
+      table+: |
+        width: 100%;
+        border-collapse: collapse;
+
+      thead th+: |
+        padding: 10px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--secondary-text-color);
+        border-bottom: 1px solid var(--divider-color);
+
+      tbody td+: |
+        padding: 11px 10px;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--divider-color);
+
+      tbody tr+: |
+        transition: background 120ms ease;
+
+      tbody tr:hover+: |
+        background: var(--secondary-background-color);
+
+      tbody tr:last-child td+: |
+        border-bottom: 0;
+
     view_layout:
       grid-area: history

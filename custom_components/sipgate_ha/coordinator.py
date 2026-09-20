@@ -19,19 +19,26 @@ from .api import (
 from .const import DEFAULT_HISTORY_LIMIT, NAME
 
 _LOGGER = logging.getLogger(__name__)
-HISTORY_UPDATE_INTERVAL = timedelta(minutes=5)
 
 
 class SipgateHistoryCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Poll a small, bounded window of recent call history."""
 
-    def __init__(self, hass: HomeAssistant, client: SipgateClient) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        client: SipgateClient,
+        refresh_minutes: int,
+    ) -> None:
         """Initialize the coordinator."""
+        update_interval = (
+            timedelta(minutes=refresh_minutes) if refresh_minutes > 0 else None
+        )
         super().__init__(
             hass,
             logger=_LOGGER,
             name=f"{NAME} call history",
-            update_interval=HISTORY_UPDATE_INTERVAL,
+            update_interval=update_interval,
         )
         self.client = client
         self.data = []

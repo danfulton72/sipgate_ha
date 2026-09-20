@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 from aiohttp import ClientError, ClientSession, encode_basic_auth
 
 from .const import API_BASE_URL
+
+if TYPE_CHECKING:
+    from .api_usage import SipgateApiUsage
 
 
 class SipgateError(Exception):
@@ -49,7 +52,14 @@ class SipgateApiError(SipgateError):
 class SipgateClient:
     """Small client containing only the API calls the integration needs."""
 
-    def __init__(self, session: ClientSession, token_id: str, token: str) -> None:
+    def __init__(
+        self,
+        session: ClientSession,
+        token_id: str,
+        token: str,
+        *,
+        usage: SipgateApiUsage | None = None,
+    ) -> None:
         """Initialize the client."""
         if not token_id or ":" in token_id:
             raise SipgateCredentialFormatError("token_id")
@@ -58,6 +68,7 @@ class SipgateClient:
 
         self._session = session
         self._authorization = encode_basic_auth(token_id, token)
+        self._usage = usage
 
     async def _request(
         self,
@@ -68,6 +79,9 @@ class SipgateClient:
         params: dict[str, Any] | None = None,
     ) -> Any:
         """Perform a sipgate API request and translate common failures."""
+        if self._usage is not None:
+            self._usage.record_request()
+
         headers = {
             "Accept": "application/json",
             "Authorization": self._authorization,

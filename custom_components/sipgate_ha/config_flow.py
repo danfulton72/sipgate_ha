@@ -32,10 +32,12 @@ from .api import (
 )
 from .const import (
     CONF_CONTACTS,
+    CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
     CONF_PUBLIC_URL,
     CONF_SIGNIFICANT_DIGITS,
     CONF_TOKEN_ID,
+    DEFAULT_HISTORY_REFRESH_MINUTES,
     DEFAULT_INCLUDE_OUTGOING,
     DEFAULT_SIGNIFICANT_DIGITS,
     DOMAIN,
@@ -59,6 +61,9 @@ URL_SELECTOR = TextSelector(
 CONTACTS_SELECTOR = TextSelector(TextSelectorConfig(multiline=True))
 DIGITS_SELECTOR = NumberSelector(
     NumberSelectorConfig(min=7, max=15, step=1, mode=NumberSelectorMode.BOX)
+)
+HISTORY_REFRESH_SELECTOR = NumberSelector(
+    NumberSelectorConfig(min=0, max=1440, step=1, mode=NumberSelectorMode.BOX)
 )
 
 
@@ -276,6 +281,13 @@ class SipgateOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_CONTACTS, default=options.get(CONF_CONTACTS, "")
                 ): CONTACTS_SELECTOR,
+                vol.Required(
+                    CONF_HISTORY_REFRESH_MINUTES,
+                    default=options.get(
+                        CONF_HISTORY_REFRESH_MINUTES,
+                        DEFAULT_HISTORY_REFRESH_MINUTES,
+                    ),
+                ): HISTORY_REFRESH_SELECTOR,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

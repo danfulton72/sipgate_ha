@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -17,6 +19,7 @@ from custom_components.sipgate_ha.const import (
     ATTR_SMS_ID,
     ATTR_TO,
     CONF_CONTACTS,
+    CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
     CONF_SIGNIFICANT_DIGITS,
     DOMAIN,
@@ -291,3 +294,26 @@ async def test_send_sms_action(
         },
         blocking=True,
     )
+
+
+async def test_history_polling_disabled_by_default(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """History has no periodic polling interval unless explicitly configured."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+
+    assert mock_config_entry.runtime_data.history_coordinator.update_interval is None
+
+
+async def test_history_polling_interval_option(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """A positive history refresh option enables fallback polling."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={CONF_HISTORY_REFRESH_MINUTES: 15},
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+
+    coordinator = mock_config_entry.runtime_data.history_coordinator
+    assert coordinator.update_interval == timedelta(minutes=15)

@@ -13,6 +13,7 @@ from custom_components.sipgate_ha.api import (
     SipgateClient,
     SipgateCredentialFormatError,
 )
+from custom_components.sipgate_ha.api_usage import SipgateApiUsage
 from custom_components.sipgate_ha.const import API_BASE_URL
 
 
@@ -187,3 +188,25 @@ async def test_send_sms(hass: HomeAssistant, aioclient_mock) -> None:
     )
 
     assert session_id == "sms-session-123"
+
+
+async def test_api_usage_counts_failed_requests(
+    hass: HomeAssistant, aioclient_mock
+) -> None:
+    """An attempted REST request counts even when sipgate returns an error."""
+    aioclient_mock.get(f"{API_BASE_URL}/account", status=500, text="server error")
+    usage = SipgateApiUsage(hass)
+    await usage.async_load()
+    client = SipgateClient(
+        async_get_clientsession(hass),
+        "token-id",
+        "secret",
+        usage=usage,
+    )
+
+    with pytest.raises(SipgateApiError):
+        await client.async_validate_credentials()
+    await hass.async_block_till_done()
+
+    assert usage.today == 1
+    assert usage.lifetime == 1

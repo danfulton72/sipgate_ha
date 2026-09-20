@@ -56,8 +56,26 @@ async def test_entities_follow_webhooks(
     history_id = registry.async_get_entity_id(
         "sensor", DOMAIN, f"{mock_config_entry.entry_id}_recent_calls"
     )
+    api_today_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{mock_config_entry.entry_id}_api_requests_today"
+    )
+    api_lifetime_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{mock_config_entry.entry_id}_api_requests_lifetime"
+    )
 
-    assert active_id and state_id and caller_id and last_call_id and history_id
+    assert all(
+        (
+            active_id,
+            state_id,
+            caller_id,
+            last_call_id,
+            history_id,
+            api_today_id,
+            api_lifetime_id,
+        )
+    )
+    assert hass.states.get(api_today_id).state == "2"
+    assert hass.states.get(api_lifetime_id).state == "2"
     client = await hass_client()
 
     await client.post(
@@ -104,3 +122,24 @@ async def test_entities_follow_webhooks(
     assert hass.states.get(last_call_id).state == "normalClearing"
     assert hass.states.get(history_id).state == "1"
     assert hass.states.get(history_id).attributes["calls"][0]["callId"] == "old-call"
+    assert hass.states.get(api_today_id).state == "3"
+    assert hass.states.get(api_lifetime_id).state == "3"
+
+
+async def test_api_usage_persists_across_reload(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Lifetime and daily API usage survive an integration reload."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    runtime = mock_config_entry.runtime_data
+    assert runtime.api_usage.today == 2
+    assert runtime.api_usage.lifetime == 2
+
+    assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    runtime = mock_config_entry.runtime_data
+    assert runtime.api_usage.today == 4
+    assert runtime.api_usage.lifetime == 4

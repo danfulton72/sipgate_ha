@@ -28,6 +28,7 @@ from .api import (
     SipgateConnectionError,
     SipgateCredentialFormatError,
 )
+from .api_usage import SipgateApiUsage
 from .call_state import SipgateCallState
 from .const import (
     ATTR_ANNOUNCEMENT,
@@ -39,8 +40,10 @@ from .const import (
     ATTR_RECIPIENT,
     ATTR_SMS_ID,
     ATTR_TO,
+    CONF_HISTORY_REFRESH_MINUTES,
     CONF_PUBLIC_URL,
     CONF_TOKEN_ID,
+    DEFAULT_HISTORY_REFRESH_MINUTES,
     DOMAIN,
     NAME,
     SERVICE_CLICK_TO_CALL,
@@ -65,6 +68,7 @@ class SipgateRuntimeData:
     webhook_url: str
     call_state: SipgateCallState
     history_coordinator: SipgateHistoryCoordinator
+    api_usage: SipgateApiUsage
 
 
 def _get_runtime(hass: HomeAssistant) -> SipgateRuntimeData:
@@ -250,11 +254,15 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up sipgate.io from a config entry."""
+    api_usage = SipgateApiUsage(hass)
+    await api_usage.async_load()
+
     try:
         client = SipgateClient(
             async_get_clientsession(hass),
             entry.data[CONF_TOKEN_ID],
             entry.data[CONF_TOKEN],
+            usage=api_usage,
         )
     except SipgateCredentialFormatError as err:
         raise ConfigEntryAuthFailed("Invalid sipgate credential format") from err
@@ -271,12 +279,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     webhook_id = entry.data[CONF_WEBHOOK_ID]
     webhook_url = build_webhook_url(entry.data[CONF_PUBLIC_URL], webhook_id)
     call_state = SipgateCallState()
-    history_coordinator = SipgateHistoryCoordinator(hass, client)
+    history_coordinator = SipgateHistoryCoordinator(
+        hass,
+        client,
+        int(
+            entry.options.get(
+                CONF_HISTORY_REFRESH_MINUTES,
+                DEFAULT_HISTORY_REFRESH_MINUTES,
+            )
+        ),
+    )
+    api_usage.start()
     entry.runtime_data = SipgateRuntimeData(
         client=client,
         webhook_url=webhook_url,
         call_state=call_state,
         history_coordinator=history_coordinator,
+        api_usage=api_usage,
     )
 
     ha_webhook.async_register(
@@ -288,6 +307,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         allowed_methods=("POST",),
     )
     entry.async_on_unload(partial(ha_webhook.async_unregister, hass, webhook_id))
+    entry.async_on_unload(api_usage.stop)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

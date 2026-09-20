@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType
@@ -33,6 +33,8 @@ async def async_setup_entry(
             SipgateLastCallerSensor(entry, runtime),
             SipgateLastCallSensor(entry, runtime),
             SipgateRecentCallsSensor(entry, runtime.history_coordinator),
+            SipgateApiRequestsTodaySensor(entry, runtime),
+            SipgateApiRequestsLifetimeSensor(entry, runtime),
         ]
     )
     hass.async_create_task(runtime.history_coordinator.async_request_refresh())
@@ -151,6 +153,60 @@ class SipgateRecentCallsSensor(
     def extra_state_attributes(self) -> dict[str, Any]:
         """Expose the bounded call-history list."""
         return {"calls": self.coordinator.data or []}
+
+
+class SipgateApiUsageSensor(SensorEntity):
+    """Base sensor for sipgate REST API request counters."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:api"
+    _attr_native_unit_of_measurement = "requests"
+
+    def __init__(
+        self, entry: ConfigEntry, runtime: SipgateRuntimeData, key: str
+    ) -> None:
+        """Initialize the API usage sensor."""
+        self._runtime = runtime
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+        self._attr_device_info = _device_info(entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to API usage changes."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self._runtime.api_usage.async_add_listener(self.async_write_ha_state)
+        )
+
+
+class SipgateApiRequestsTodaySensor(SipgateApiUsageSensor):
+    """REST API requests made today."""
+
+    _attr_translation_key = "api_requests_today"
+
+    def __init__(self, entry: ConfigEntry, runtime: SipgateRuntimeData) -> None:
+        """Initialize the daily request sensor."""
+        super().__init__(entry, runtime, "api_requests_today")
+
+    @property
+    def native_value(self) -> int:
+        """Return today's REST API request count."""
+        return self._runtime.api_usage.today
+
+
+class SipgateApiRequestsLifetimeSensor(SipgateApiUsageSensor):
+    """REST API requests made since tracking was enabled."""
+
+    _attr_translation_key = "api_requests_lifetime"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, entry: ConfigEntry, runtime: SipgateRuntimeData) -> None:
+        """Initialize the lifetime request sensor."""
+        super().__init__(entry, runtime, "api_requests_lifetime")
+
+    @property
+    def native_value(self) -> int:
+        """Return the persisted lifetime REST API request count."""
+        return self._runtime.api_usage.lifetime
 
 
 def _device_info(entry: ConfigEntry) -> DeviceInfo:

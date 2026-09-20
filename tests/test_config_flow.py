@@ -154,9 +154,7 @@ async def test_duplicate_setup_aborts(hass: HomeAssistant, mock_config_entry) ->
 
 async def test_unexpected_api_error(hass: HomeAssistant, aioclient_mock) -> None:
     """Unexpected sipgate HTTP failures stay on the setup form."""
-    aioclient_mock.get(
-        f"{API_BASE_URL}/account", status=500, text="server error"
-    )
+    aioclient_mock.get(f"{API_BASE_URL}/account", status=500, text="server error")
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}

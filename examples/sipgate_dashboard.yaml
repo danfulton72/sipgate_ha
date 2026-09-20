@@ -106,6 +106,14 @@ cards:
         icon: mdi:history
         content_info: state
       - type: template
+        icon: mdi:api
+        content: >-
+          {{ states('sensor.sipgate_io_api_requests_today') }} API today
+      - type: template
+        icon: mdi:counter
+        content: >-
+          {{ states('sensor.sipgate_io_api_requests_lifetime') }} lifetime
+      - type: template
         icon: mdi:record-rec
         icon_color: >-
           {% set call =

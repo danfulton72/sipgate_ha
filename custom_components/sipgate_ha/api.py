@@ -22,6 +22,15 @@ class SipgateConnectionError(SipgateError):
     """Raised when sipgate cannot be reached."""
 
 
+class SipgateCredentialFormatError(SipgateError):
+    """Raised when PAT fields cannot form valid HTTP Basic credentials."""
+
+    def __init__(self, field: str) -> None:
+        """Initialize the credential-format error."""
+        super().__init__(field)
+        self.field = field
+
+
 class SipgateAuthorizationError(SipgateError):
     """Raised when valid credentials lack permission for an API resource."""
 
@@ -40,6 +49,11 @@ class SipgateClient:
 
     def __init__(self, session: ClientSession, token_id: str, token: str) -> None:
         """Initialize the client."""
+        if not token_id or ":" in token_id:
+            raise SipgateCredentialFormatError("token_id")
+        if not token:
+            raise SipgateCredentialFormatError("token")
+
         self._session = session
         self._authorization = encode_basic_auth(token_id, token)
 

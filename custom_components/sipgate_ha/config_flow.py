@@ -28,6 +28,7 @@ from .api import (
     SipgateAuthorizationError,
     SipgateClient,
     SipgateConnectionError,
+    SipgateCredentialFormatError,
 )
 from .const import (
     CONF_CONTACTS,
@@ -65,7 +66,13 @@ async def _async_validate_credentials(
     hass: HomeAssistant, token_id: str, token: str
 ) -> dict[str, str]:
     """Validate sipgate credentials and return config-flow errors."""
-    client = SipgateClient(async_get_clientsession(hass), token_id, token)
+    try:
+        client = SipgateClient(async_get_clientsession(hass), token_id, token)
+    except SipgateCredentialFormatError as err:
+        if err.field == CONF_TOKEN_ID:
+            return {CONF_TOKEN_ID: "invalid_token_id"}
+        return {CONF_TOKEN: "invalid_token"}
+
     try:
         await client.async_validate_credentials()
     except SipgateAuthenticationError:

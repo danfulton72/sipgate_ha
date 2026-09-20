@@ -27,8 +27,8 @@ from .api import (
     SipgateAuthenticationError,
     SipgateAuthorizationError,
     SipgateClient,
-    SipgateCredentialFormatError,
     SipgateConnectionError,
+    SipgateCredentialFormatError,
 )
 from .const import (
     CONF_CONTACTS,

@@ -174,9 +174,7 @@ class SipgateConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_TOKEN_ID, default=entry.data[CONF_TOKEN_ID]
-                ): str,
+                vol.Required(CONF_TOKEN_ID, default=entry.data[CONF_TOKEN_ID]): str,
                 vol.Required(CONF_TOKEN): TOKEN_SELECTOR,
             }
         )

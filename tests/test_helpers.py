@@ -40,9 +40,7 @@ def test_number_helpers() -> None:
 
 def test_contacts_and_description() -> None:
     """Contacts parse and produce friendly caller descriptions."""
-    contacts = parse_contacts(
-        "# family\n+442071234567=Mum\n02089998888=Dentist\n", 9
-    )
+    contacts = parse_contacts("# family\n+442071234567=Mum\n02089998888=Dentist\n", 9)
 
     number, name, display = describe_number("442071234567", contacts, 9)
     assert number == "+442071234567"

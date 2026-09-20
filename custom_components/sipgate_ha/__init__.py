@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import partial
 
 import voluptuous as vol
-from homeassistant.components import webhook
+from homeassistant.components import webhook as ha_webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_TOKEN, CONF_WEBHOOK_ID
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -102,7 +102,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     webhook_url = build_webhook_url(entry.data[CONF_PUBLIC_URL], webhook_id)
     entry.runtime_data = SipgateRuntimeData(client=client, webhook_url=webhook_url)
 
-    webhook.async_register(
+    ha_webhook.async_register(
         hass,
         DOMAIN,
         NAME,
@@ -110,7 +110,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         partial(async_handle_webhook, entry=entry, webhook_url=webhook_url),
         allowed_methods=("POST",),
     )
-    entry.async_on_unload(partial(webhook.async_unregister, hass, webhook_id))
+    entry.async_on_unload(partial(ha_webhook.async_unregister, hass, webhook_id))
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
 

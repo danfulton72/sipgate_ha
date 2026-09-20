@@ -19,6 +19,8 @@ from .api import (
 from .const import DEFAULT_HISTORY_LIMIT, NAME
 
 _LOGGER = logging.getLogger(__name__)
+
+
 class SipgateHistoryCoordinator(DataUpdateCoordinator[list[dict[str, Any]]]):
     """Poll a small, bounded window of recent call history."""
 

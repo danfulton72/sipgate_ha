@@ -5,7 +5,7 @@ from __future__ import annotations
 from http import HTTPStatus
 from urllib.parse import quote
 
-from aiohttp import BasicAuth, ClientError, ClientSession
+from aiohttp import ClientError, ClientSession, encode_basic_auth
 
 from .const import API_BASE_URL
 
@@ -37,7 +37,7 @@ class SipgateClient:
     def __init__(self, session: ClientSession, token_id: str, token: str) -> None:
         """Initialize the client."""
         self._session = session
-        self._auth = BasicAuth(token_id, token)
+        self._authorization = encode_basic_auth(token_id, token)
 
     async def _request(self, method: str, path: str) -> None:
         """Perform a sipgate API request and translate common failures."""
@@ -45,8 +45,10 @@ class SipgateClient:
             async with self._session.request(
                 method,
                 f"{API_BASE_URL}{path}",
-                auth=self._auth,
-                headers={"Accept": "application/json"},
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": self._authorization,
+                },
             ) as response:
                 if response.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
                     raise SipgateAuthenticationError

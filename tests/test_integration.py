@@ -40,7 +40,6 @@ async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
         json={"items": [], "totalCount": 0},
-        repeat=True,
     )
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

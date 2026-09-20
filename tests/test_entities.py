@@ -10,10 +10,9 @@ from custom_components.sipgate_ha.const import API_BASE_URL, DOMAIN
 
 async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     """Set up the integration and its entity platforms."""
-    aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"}, repeat=True)
+    aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
-        repeat=True,
         json={
             "items": [
                 {

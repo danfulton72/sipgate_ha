@@ -22,6 +22,10 @@ class SipgateConnectionError(SipgateError):
     """Raised when sipgate cannot be reached."""
 
 
+class SipgateAuthorizationError(SipgateError):
+    """Raised when valid credentials lack permission for an API resource."""
+
+
 class SipgateApiError(SipgateError):
     """Raised for an unexpected sipgate API response."""
 
@@ -50,8 +54,11 @@ class SipgateClient:
                     "Authorization": self._authorization,
                 },
             ) as response:
-                if response.status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
+                if response.status == HTTPStatus.UNAUTHORIZED:
                     raise SipgateAuthenticationError
+
+                if response.status == HTTPStatus.FORBIDDEN:
+                    raise SipgateAuthorizationError
 
                 if response.status >= HTTPStatus.BAD_REQUEST:
                     body = (await response.text())[:200]
@@ -62,8 +69,8 @@ class SipgateClient:
             raise SipgateConnectionError from err
 
     async def async_validate_credentials(self) -> None:
-        """Validate credentials against the running-calls endpoint."""
-        await self._request("GET", "/calls")
+        """Validate credentials against sipgate's current-user endpoint."""
+        await self._request("GET", "/authorization/userinfo")
 
     async def async_hang_up(self, call_id: str) -> None:
         """Terminate a running call."""

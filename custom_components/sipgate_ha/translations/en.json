@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to sipgate.io",
-        "description": "Create a sipgate Personal Access Token with permission to read and manipulate running calls. The public Home Assistant URL must be reachable by sipgate.",
+        "description": "Create a sipgate Personal Access Token. The public Home Assistant URL must be reachable by sipgate. The `rtcm:write` permission is only required for the optional Hang up action.",
         "data": {
           "token_id": "Personal Access Token ID",
           "token": "Personal Access Token",
@@ -40,9 +40,9 @@
     },
     "error": {
       "cannot_connect": "Could not connect to sipgate. Check your internet connection and try again.",
-      "invalid_auth": "sipgate rejected these credentials or they do not have permission to access running calls.",
+      "invalid_auth": "sipgate rejected these Personal Access Token credentials.",
       "invalid_url": "Enter a valid HTTP or HTTPS Home Assistant base URL without a query string or fragment.",
-      "unknown": "Unexpected error communicating with sipgate."
+      "unknown": "sipgate returned an unexpected response while validating the token."
     },
     "abort": {
       "already_configured": "sipgate.io is already configured.",

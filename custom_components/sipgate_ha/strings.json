@@ -13,7 +13,7 @@
         "data_description": {
           "token_id": "The token ID shown by sipgate when the Personal Access Token is created.",
           "token": "The Personal Access Token secret.",
-          "public_url": "The externally reachable base URL for Home Assistant, for example https://ha.example.com."
+          "public_url": "The externally reachable base URL for Home Assistant."
         }
       },
       "webhook": {

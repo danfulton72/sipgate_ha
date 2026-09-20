@@ -23,6 +23,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # Description/topics are GitHub repository settings, not source files.
+          ignore: "description topics"
 
   test:
     runs-on: ubuntu-latest

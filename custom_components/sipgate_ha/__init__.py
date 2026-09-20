@@ -31,8 +31,8 @@ from .api import (
 from .call_state import SipgateCallState
 from .const import (
     ATTR_ANNOUNCEMENT,
-    ATTR_CALLER_ID,
     ATTR_CALL_ID,
+    ATTR_CALLER_ID,
     ATTR_DEVICE_ID,
     ATTR_FROM,
     ATTR_TO,

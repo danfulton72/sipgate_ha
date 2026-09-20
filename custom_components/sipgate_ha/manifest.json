@@ -1,0 +1,13 @@
+{
+  "domain": "sipgate_ha",
+  "name": "sipgate.io",
+  "codeowners": ["@danfulton72"],
+  "config_flow": true,
+  "dependencies": ["webhook"],
+  "documentation": "https://github.com/danfulton72/sipgate_ha",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/danfulton72/sipgate_ha/issues",
+  "single_config_entry": true,
+  "version": "1.0.0"
+}

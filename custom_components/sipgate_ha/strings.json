@@ -1,0 +1,85 @@
+{
+  "title": "sipgate.io",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to sipgate.io",
+        "description": "Create a sipgate Personal Access Token with permission to read and manipulate running calls. The public Home Assistant URL must be reachable by sipgate.",
+        "data": {
+          "token_id": "Personal Access Token ID",
+          "token": "Personal Access Token",
+          "public_url": "Public Home Assistant URL"
+        },
+        "data_description": {
+          "token_id": "The token ID shown by sipgate when the Personal Access Token is created.",
+          "token": "The Personal Access Token secret.",
+          "public_url": "The externally reachable base URL for Home Assistant."
+        }
+      },
+      "webhook": {
+        "title": "Configure the sipgate webhook",
+        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\n\n`{webhook_url}`\n\nThe same URL handles newCall, answer, and hangup events. Keep this URL private because the random webhook ID acts as its authentication secret."
+      },
+      "reauth_confirm": {
+        "title": "Reconnect to sipgate.io",
+        "description": "The stored sipgate credentials are no longer accepted. Enter a valid Personal Access Token.",
+        "data": {
+          "token_id": "Personal Access Token ID",
+          "token": "Personal Access Token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure sipgate.io",
+        "description": "Update the sipgate credentials or public Home Assistant URL. If you change the public URL, update the Incoming calls webhook URL in sipgate as well; the webhook ID itself does not change.",
+        "data": {
+          "token_id": "Personal Access Token ID",
+          "token": "Personal Access Token",
+          "public_url": "Public Home Assistant URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to sipgate. Check your internet connection and try again.",
+      "invalid_auth": "sipgate rejected these credentials or they do not have permission to access running calls.",
+      "invalid_url": "Enter a valid HTTP or HTTPS Home Assistant base URL without a query string or fragment.",
+      "unknown": "Unexpected error communicating with sipgate."
+    },
+    "abort": {
+      "already_configured": "sipgate.io is already configured.",
+      "reauth_successful": "sipgate.io credentials were updated successfully.",
+      "reconfigure_successful": "sipgate.io was reconfigured successfully.",
+      "unknown": "The setup flow lost its temporary state. Start setup again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "sipgate.io options",
+        "description": "Caller names are optional. Enter one contact per line as `number=Name`. Matching uses the final significant digits so national and international forms can match.",
+        "data": {
+          "include_outgoing": "Fire call-started events for outgoing calls",
+          "significant_digits": "Digits used for contact matching",
+          "contacts": "Caller name mappings"
+        },
+        "data_description": {
+          "contacts": "Example: +442071234567=Mum"
+        }
+      }
+    },
+    "error": {
+      "invalid_contacts": "Contacts must contain one `number=Name` mapping per line."
+    }
+  },
+  "services": {
+    "hang_up": {
+      "name": "Hang up call",
+      "description": "Terminate a running sipgate call using its call ID.",
+      "fields": {
+        "call_id": {
+          "name": "Call ID",
+          "description": "The callId received in a sipgate webhook event."
+        }
+      }
+    }
+  }
+}

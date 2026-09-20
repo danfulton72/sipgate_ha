@@ -1,0 +1,7 @@
+hang_up:
+  fields:
+    call_id:
+      required: true
+      example: ABC123DEF456
+      selector:
+        text:

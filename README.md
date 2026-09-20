@@ -1,161 +1,209 @@
-# sipgate.io → Home Assistant call notifier
+# sipgate.io for Home Assistant
 
-Actionable "incoming call" notifications in Home Assistant, with caller-name
-resolution and a Hang up button. No SIP registration, no softphone container.
+A native Home Assistant custom integration for **sipgate.io call webhooks**.
+It receives `newCall`, `answer`, and `hangup` events directly inside Home
+Assistant, fires Home Assistant events for automations, resolves optional local
+caller-name mappings, and provides a `sipgate_ha.hang_up` action for real-time
+call control.
 
-```
-  sipgate.io  ──POST newCall──▶  bridge  ──event──▶  Home Assistant
-       ▲                            │                      │
-       │◀──── XML (onAnswer/onHangup)                       │ notification
-       │                                                    ▼
-       └──────── DELETE /v2/calls/{callId} ◀──── rest_command ◀── "Hang up" tapped
-```
+There is no sidecar container, no long-lived Home Assistant access token, and
+no YAML required to configure the integration itself.
 
-## Before you build anything: the five-minute test
+## Requirements
 
-Everything here hinges on one undocumented question — **can you hang up a call
-that is still ringing?** RTCM is described as modifying *running* calls, and it
-is not stated whether an unanswered inbound call qualifies.
+- Home Assistant **2026.9.0 or newer**.
+- A sipgate account with sipgate.io push webhooks enabled.
+- A sipgate Personal Access Token (PAT) allowed to read/manipulate running calls.
+- A Home Assistant URL that sipgate can reach from the internet. HTTPS is
+  strongly recommended by sipgate.
 
-Create a Personal Access Token in the sipgate web console, then ring your own
-sipgate number and, while it is still ringing, run:
+## Installation
 
-```bash
-curl -s -u "token-XXXX-0:your-token" https://api.sipgate.com/v2/calls | jq
-```
+### HACS custom repository
 
-- **Call is listed** → everything below works as written. Note the `callId` and
-  try `curl -X DELETE -u ... https://api.sipgate.com/v2/calls/<callId>` to
-  confirm.
-- **Empty array** → the notification and caller ID still work perfectly; the
-  Hang up button won't. See *Fallbacks* at the bottom.
+1. In HACS, open **Integrations** and add this repository as a custom repository
+   of type **Integration**.
+2. Install **sipgate.io**.
+3. Restart Home Assistant.
+4. Go to **Settings → Devices & services → Add integration → sipgate.io**.
+
+You can also install manually by copying `custom_components/sipgate_ha` into
+Home Assistant's `custom_components` directory and restarting Home Assistant.
 
 ## Setup
 
-### 1. Book sipgate.io
+During the UI setup flow enter:
 
-The push API needs a package on your account. The most basic one is the free
-sipgate.io **S** package. On sipgate basic or simquadrat you book it in the
-product's feature store; as a sipgate team admin it's under *Account
-Administration → Plans & Packages*.
+- the sipgate PAT ID;
+- the PAT secret;
+- your externally reachable Home Assistant base URL, for example
+  `https://ha.example.com` or your Home Assistant Cloud remote URL.
 
-### 2. Create credentials
+The integration validates the PAT against sipgate's running-calls endpoint and
+then generates a cryptographically random Home Assistant webhook ID. The final
+setup step displays the complete webhook URL.
 
-- **Home Assistant long-lived access token** — your HA profile page, bottom.
-- **sipgate Personal Access Token** — sipgate web console. Give it the
-  call-manipulation scopes (you'll see them listed when creating it). Note both
-  the token **ID** and the token itself; they're used as HTTP Basic
-  username/password.
+In the sipgate web console, set **Incoming calls** to that URL. The integration
+returns the XML that subscribes the same URL to sipgate's `onAnswer` and
+`onHangup` callbacks, so only one URL is required.
 
-Build the header value for `secrets.yaml`:
+> Treat the webhook URL as a secret. Home Assistant webhook endpoints are
+> intentionally unauthenticated; the random webhook ID is the bearer secret.
 
-```bash
-echo "Basic $(printf 'token-XXXX-0:your-personal-access-token' | base64 -w0)"
+## Home Assistant events
+
+The integration fires these events:
+
+- `sipgate_call_started`
+- `sipgate_call_answered`
+- `sipgate_call_ended`
+
+A `sipgate_call_started` event contains fields such as:
+
+```yaml
+call_id: ABC123
+from: "+442071234567"
+to: "+441234567890"
+name: Mum
+display: "Mum (+442071234567)"
+known: true
+anonymous: false
+users:
+  - Alice
+user_ids:
+  - w0
 ```
 
-### 3. Deploy the bridge
+The event names intentionally match the original container bridge so existing
+automations need minimal changes.
 
-```bash
-cp .env.example .env
-openssl rand -hex 32          # put this in both WEBHOOK_TOKEN and PUBLIC_BASE
-cp data/contacts.example.json data/contacts.json
-$EDITOR .env data/contacts.json
-docker compose up -d --build
+## Hang up action
+
+Use the native action instead of a `rest_command`:
+
+```yaml
+action: sipgate_ha.hang_up
+data:
+  call_id: "{{ trigger.event.data.call_id }}"
 ```
 
-`PUBLIC_BASE` must be the full external HTTPS prefix **including** the token,
-e.g. `https://calls.example.com/8f3a1c...`. It's baked into the
-`onAnswer`/`onHangup` attributes sipgate calls back on, so it has to be
-absolute and resolvable from sipgate's network.
+sipgate documents `DELETE /v2/calls/{callId}` for terminating a running call.
+Whether an unanswered inbound call is already considered a manipulable running
+call can depend on sipgate's RTCM behaviour, so test the Hang up action while a
+call is ringing before relying on it.
 
-Put it behind whatever reverse proxy you already run. sipgate's own docs
-strongly discourage plain HTTP here, since the payloads carry call metadata.
+## Actionable mobile notification example
 
-### 4. Point sipgate at it
+Replace `notify.mobile_app_your_phone` with your Companion App notify action.
 
-1. Go to `console.sipgate.com` and log in.
-2. *Webhooks → URLs* in the left menu.
-3. Gear icon on the **Incoming** entry.
-4. Set `https://calls.example.com/<token>/newcall` and save.
-5. In the sources section, pick which phonelines and groups should fire it.
-
-### 5. Home Assistant
-
-Copy the blocks from `homeassistant.yaml` into your config, replacing
-`notify.mobile_app_YOUR_PHONE` with your device. Restart, then simulate a call
-without bothering anyone:
-
-```bash
-curl -X POST \
-  --data "event=newCall&from=442071234567&to=4915791234567&direction=in&callId=test123&user[]=Alice&userId[]=w0" \
-  https://calls.example.com/<token>/newcall
+```yaml
+alias: "Sipgate: incoming call"
+mode: parallel
+triggers:
+  - trigger: event
+    event_type: sipgate_call_started
+actions:
+  - action: notify.mobile_app_your_phone
+    data:
+      title: Incoming call
+      message: "{{ trigger.event.data.display }}"
+      data:
+        tag: "sipgate-{{ trigger.event.data.call_id }}"
+        importance: high
+        priority: high
+        ttl: 0
+        actions:
+          - action: "SIPGATE_HANGUP_{{ trigger.event.data.call_id }}"
+            title: Hang up
+            destructive: true
 ```
 
-You should get XML back and a notification on your phone. Clear it with:
+And handle the button:
 
-```bash
-curl -X POST --data "event=hangup&cause=cancel&callId=test123&direction=in" \
-  https://calls.example.com/<token>/hangup
+```yaml
+alias: "Sipgate: hang up from notification"
+mode: parallel
+triggers:
+  - trigger: event
+    event_type: mobile_app_notification_action
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.action is defined and
+         trigger.event.data.action.startswith('SIPGATE_HANGUP_') }}
+actions:
+  - action: sipgate_ha.hang_up
+    data:
+      call_id: >-
+        {{ trigger.event.data.action.split('SIPGATE_HANGUP_')[1] }}
 ```
 
-## Notes on the design
+You can clear the notification on either `sipgate_call_answered` or
+`sipgate_call_ended` using the same notification tag.
 
-**Why a bridge at all.** HA's webhook trigger always answers 200 with an empty
-body. sipgate wants XML, and the `onAnswer`/`onHangup` subscription only exists
-inside that XML. Hence ~200 lines of shim.
+## Caller names
 
-**Latency matters.** The `newCall` handler sits in the call-setup path — the
-phone doesn't ring until you answer. The handler builds a string and returns;
-the HA call is dispatched as a background task.
+Open the integration's **Configure** dialog to add optional contact mappings.
+Use one mapping per line:
 
-**Number formats.** sipgate sends `from` without a leading `+`
-(`492111234567`), or the literal `anonymous` for withheld. Contact matching
-uses the last 9 digits so `+442071234567`, `02071234567` and `00442071234567`
-all resolve to the same person.
+```text
++442071234567=Mum
+02089998888=Dentist
++447700900123=Sam
+```
 
-**`user[]` is always an array**, even for one user, because group calls ring
-several people at once.
+By default, matching uses the final 9 digits, allowing national and
+international representations of the same number to match. The number of
+significant digits is configurable from 7 to 15.
 
-**No webhook signatures.** sipgate doesn't sign its pushes. The unguessable
-path segment is the whole of your authentication — keep it long and rotate it
-if it leaks. An IP allowlist on your proxy is a reasonable second layer.
+Outgoing `newCall` events are ignored by default and can also be enabled from
+integration options.
 
-**Push latency.** FCM/APNS delivery is usually 1–3s but isn't guaranteed. On a
-call that rings for 20 seconds that's tight. The Android companion app's local
-push (via the HA websocket, when on your own network) is noticeably faster if
-you have it available.
+## Architecture
 
-## Fallbacks if you can't hang up a ringing call
+```text
+sipgate.io
+    │  POST application/x-www-form-urlencoded
+    ▼
+Home Assistant /api/webhook/<random-id>
+    │
+    ├─ newCall ──► fire sipgate_call_started + return callback XML
+    ├─ answer  ──► fire sipgate_call_answered
+    └─ hangup  ──► fire sipgate_call_ended
 
-In rough order of how much I'd recommend them:
+Home Assistant automation
+    │
+    └─ sipgate_ha.hang_up ──► DELETE api.sipgate.com/v2/calls/<callId>
+```
 
-**1. Persistent blocklist (best).** Change the Hang up button to "Block this
-number". It writes to a JSON file the bridge reads, and future calls from that
-number get an immediate `<Reject reason="busy"/>` in the `newCall` response.
-This is what the push API is genuinely designed for, it works with total
-reliability, and after a couple of weeks of tapping it you'll rarely be
-bothered again. The current call still rings out, which is the trade.
+The `newCall` path intentionally performs no outbound API request before
+returning the XML response. This keeps Home Assistant's part of sipgate's call
+setup path as short as practical.
 
-**2. Voicemail diversion on a known-bad list.** Same mechanism, but respond
-with `<Dial><Voicemail /></Dial>` instead — the caller can leave a message.
-Requires the voicemail feature booked.
+## Development
 
-**3. Hold the webhook open.** Delay the XML response for 3–5 seconds while
-polling a decision flag that the notification action sets. sipgate's docs note
-this effect explicitly for `Gather`: call establishment is delayed until the
-timeout elapses. It technically gives you a real "reject this one" button, but
-it adds several seconds of silence to *every* call before your phone rings, and
-you're gambling on sipgate's undocumented response timeout. I wouldn't ship it.
+The repository includes Home Assistant-style pytest tests, Ruff, hassfest and
+HACS validation.
 
-**4. Reverse the default.** Respond to every unknown number with a `<Gather>`
-that plays a short "press 1 to be connected" prompt. Kills automated dialers
-outright, at the cost of mildly annoying every human who isn't in your
-contacts.
+```bash
+python -m pip install -r requirements-test.txt
+ruff check .
+ruff format --check .
+pytest --cov=custom_components/sipgate_ha --cov-report=term-missing
+```
 
-## A word on sipgate neo
+CI runs the same checks on every pull request and push to `main`.
 
-If your account predates September 2025 you're on sipgate classic, which is
-what this targets. Accounts are being migrated to neo gradually, and on neo
-**channels replace groups and phonelines** — which is exactly the concept the
-webhook source selection in step 4 uses. Check `featureScope` in your JWT
-(`CLASSIC_PBX` vs `NEO_PBX`) before debugging anything that used to work.
+## Security and privacy
+
+- The sipgate PAT is stored in the Home Assistant config entry and is redacted
+  from diagnostics.
+- The webhook ID is generated with Home Assistant's cryptographically secure
+  webhook helper and is also redacted from diagnostics.
+- Caller mappings are local Home Assistant options and are redacted from
+  diagnostics.
+- sipgate recommends HTTPS for push webhooks because call metadata is sensitive.
+
+## License
+
+MIT

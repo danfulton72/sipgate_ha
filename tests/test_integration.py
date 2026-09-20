@@ -1,0 +1,194 @@
+"""Integration-level tests for sipgate.io webhooks and actions."""
+
+from __future__ import annotations
+
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import async_capture_events
+
+from custom_components.sipgate_ha.const import (
+    API_BASE_URL,
+    ATTR_CALL_ID,
+    CONF_CONTACTS,
+    CONF_INCLUDE_OUTGOING,
+    CONF_SIGNIFICANT_DIGITS,
+    DOMAIN,
+    EVENT_CALL_ANSWERED,
+    EVENT_CALL_ENDED,
+    EVENT_CALL_STARTED,
+    SERVICE_HANG_UP,
+)
+
+
+async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
+    """Set up a config entry with successful sipgate validation."""
+    aioclient_mock.get(f"{API_BASE_URL}/calls", json=[])
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_new_call_webhook(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Incoming calls fire the legacy-compatible HA event and return XML."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            CONF_CONTACTS: "+442071234567=Mum",
+            CONF_SIGNIFICANT_DIGITS: 9,
+            CONF_INCLUDE_OUTGOING: False,
+        },
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    events = async_capture_events(hass, EVENT_CALL_STARTED)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data=[
+            ("event", "newCall"),
+            ("from", "442071234567"),
+            ("to", "441234567890"),
+            ("direction", "in"),
+            ("callId", "call-123"),
+            ("user[]", "Alice"),
+            ("userId[]", "w0"),
+            ("fullUserId[]", "123w0"),
+        ],
+    )
+
+    assert response.status == 200
+    assert response.content_type == "application/xml"
+    body = await response.text()
+    assert 'onAnswer="https://ha.example.com/api/webhook/test-webhook-id"' in body
+    assert 'onHangup="https://ha.example.com/api/webhook/test-webhook-id"' in body
+
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    data = events[0].data
+    assert data["call_id"] == "call-123"
+    assert data["from"] == "+442071234567"
+    assert data["name"] == "Mum"
+    assert data["display"] == "Mum (+442071234567)"
+    assert data["known"] is True
+    assert data["users"] == ["Alice"]
+    assert data["user_ids"] == ["w0"]
+
+
+async def test_answer_and_hangup_webhooks(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Follow-up events use the same webhook endpoint."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    answer_events = async_capture_events(hass, EVENT_CALL_ANSWERED)
+    ended_events = async_capture_events(hass, EVENT_CALL_ENDED)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "answer",
+            "callId": "call-123",
+            "direction": "in",
+            "user": "Alice",
+            "answeringNumber": "442079999999",
+        },
+    )
+    assert response.status == 204
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "hangup",
+            "callId": "call-123",
+            "direction": "in",
+            "cause": "normalClearing",
+        },
+    )
+    assert response.status == 204
+
+    await hass.async_block_till_done()
+    assert answer_events[0].data["answered_by"] == "Alice"
+    assert answer_events[0].data["answering_number"] == "+442079999999"
+    assert ended_events[0].data["cause"] == "normalClearing"
+
+
+async def test_outgoing_ignored_by_default(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Outgoing newCall events do not fire unless explicitly enabled."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    events = async_capture_events(hass, EVENT_CALL_STARTED)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "newCall",
+            "from": "442071234567",
+            "to": "441234567890",
+            "direction": "out",
+            "callId": "call-out",
+        },
+    )
+    assert response.status == 200
+    await hass.async_block_till_done()
+    assert events == []
+
+
+async def test_hang_up_action(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """The native Home Assistant action calls sipgate RTCM directly."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.delete(f"{API_BASE_URL}/calls/call-123", status=204)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_HANG_UP,
+        {ATTR_CALL_ID: "call-123"},
+        blocking=True,
+    )
+
+
+async def test_outgoing_enabled(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Outgoing newCall events can be enabled in options."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry, options={CONF_INCLUDE_OUTGOING: True}
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    events = async_capture_events(hass, EVENT_CALL_STARTED)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "newCall",
+            "from": "442071234567",
+            "to": "441234567890",
+            "direction": "out",
+            "callId": "call-out",
+        },
+    )
+
+    assert response.status == 200
+    await hass.async_block_till_done()
+    assert events[0].data["call_id"] == "call-out"
+
+
+async def test_unknown_webhook_event(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Unknown sipgate event names are acknowledged without firing call events."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    started = async_capture_events(hass, EVENT_CALL_STARTED)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id", data={"event": "somethingElse"}
+    )
+
+    assert response.status == 204
+    await hass.async_block_till_done()
+    assert started == []

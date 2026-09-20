@@ -87,9 +87,7 @@ async def test_recording_control(hass: HomeAssistant, aioclient_mock) -> None:
     aioclient_mock.put(f"{API_BASE_URL}/calls/call-123/recording", status=204)
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
-    await client.async_set_recording(
-        "call-123", recording=True, announcement=True
-    )
+    await client.async_set_recording("call-123", recording=True, announcement=True)
 
 
 async def test_click_to_call(hass: HomeAssistant, aioclient_mock) -> None:

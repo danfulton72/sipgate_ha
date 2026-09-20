@@ -316,6 +316,5 @@ async def test_history_polling_interval_option(
     )
     await _setup_entry(hass, mock_config_entry, aioclient_mock)
 
-    assert mock_config_entry.runtime_data.history_coordinator.update_interval == timedelta(
-        minutes=15
-    )
+    coordinator = mock_config_entry.runtime_data.history_coordinator
+    assert coordinator.update_interval == timedelta(minutes=15)

@@ -228,6 +228,10 @@ async def test_reconfigure_flow(
 ) -> None:
     """Reconfigure updates credentials and the public URL without rotating the hook."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(
+        f"{API_BASE_URL}/history",
+        json={"items": [], "totalCount": 0},
+    )
     original_webhook_id = mock_config_entry.data[CONF_WEBHOOK_ID]
 
     result = await mock_config_entry.start_reconfigure_flow(hass)
@@ -249,3 +253,8 @@ async def test_reconfigure_flow(
     assert mock_config_entry.data[CONF_TOKEN] == "new-secret"
     assert mock_config_entry.data[CONF_PUBLIC_URL] == "https://new-ha.example.com"
     assert mock_config_entry.data[CONF_WEBHOOK_ID] == original_webhook_id
+
+    await hass.async_block_till_done()
+    if mock_config_entry.state is ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()

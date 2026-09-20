@@ -9,22 +9,23 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from custom_components.sipgate_ha.api import (
     SipgateApiError,
     SipgateAuthenticationError,
+    SipgateAuthorizationError,
     SipgateClient,
 )
 from custom_components.sipgate_ha.const import API_BASE_URL
 
 
 async def test_validate_credentials(hass: HomeAssistant, aioclient_mock) -> None:
-    """A successful calls request validates the PAT."""
-    aioclient_mock.get(f"{API_BASE_URL}/calls", json=[])
+    """A successful user-info request validates the PAT."""
+    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", json={"sub": "w0"})
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
     await client.async_validate_credentials()
 
 
 async def test_authentication_error(hass: HomeAssistant, aioclient_mock) -> None:
-    """401 and 403 responses are authentication errors."""
-    aioclient_mock.get(f"{API_BASE_URL}/calls", status=403)
+    """401 responses are authentication errors."""
+    aioclient_mock.get(f"{API_BASE_URL}/authorization/userinfo", status=401)
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
     with pytest.raises(SipgateAuthenticationError):
@@ -33,7 +34,9 @@ async def test_authentication_error(hass: HomeAssistant, aioclient_mock) -> None
 
 async def test_api_error(hass: HomeAssistant, aioclient_mock) -> None:
     """Other HTTP failures retain their status and a bounded response body."""
-    aioclient_mock.get(f"{API_BASE_URL}/calls", status=500, text="server error")
+    aioclient_mock.get(
+        f"{API_BASE_URL}/authorization/userinfo", status=500, text="server error"
+    )
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
     with pytest.raises(SipgateApiError) as err:
@@ -49,3 +52,12 @@ async def test_hang_up_quotes_call_id(hass: HomeAssistant, aioclient_mock) -> No
     client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
 
     await client.async_hang_up("id/with space")
+
+
+async def test_authorization_error(hass: HomeAssistant, aioclient_mock) -> None:
+    """403 responses are authorization errors."""
+    aioclient_mock.delete(f"{API_BASE_URL}/calls/call-123", status=403)
+    client = SipgateClient(async_get_clientsession(hass), "token-id", "secret")
+
+    with pytest.raises(SipgateAuthorizationError):
+        await client.async_hang_up("call-123")

@@ -24,6 +24,7 @@ from homeassistant.helpers.selector import (
 from .api import (
     SipgateApiError,
     SipgateAuthenticationError,
+    SipgateAuthorizationError,
     SipgateClient,
     SipgateConnectionError,
 )
@@ -64,7 +65,7 @@ async def _async_validate_credentials(
     client = SipgateClient(async_get_clientsession(hass), token_id, token)
     try:
         await client.async_validate_credentials()
-    except SipgateAuthenticationError:
+    except (SipgateAuthenticationError, SipgateAuthorizationError):
         return {"base": "invalid_auth"}
     except SipgateConnectionError:
         return {"base": "cannot_connect"}

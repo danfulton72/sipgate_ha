@@ -23,6 +23,7 @@ from homeassistant.helpers.typing import ConfigType
 from .api import (
     SipgateApiError,
     SipgateAuthenticationError,
+    SipgateAuthorizationError,
     SipgateClient,
     SipgateConnectionError,
 )
@@ -67,6 +68,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             raise HomeAssistantError(
                 "sipgate rejected the configured credentials"
             ) from err
+        except SipgateAuthorizationError as err:
+            raise HomeAssistantError(
+                "The sipgate token does not have permission to control running calls"
+            ) from err
         except SipgateConnectionError as err:
             raise HomeAssistantError("Could not connect to sipgate") from err
         except SipgateApiError as err:
@@ -91,7 +96,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await client.async_validate_credentials()
-    except SipgateAuthenticationError as err:
+    except (SipgateAuthenticationError, SipgateAuthorizationError) as err:
         raise ConfigEntryAuthFailed("Invalid sipgate credentials") from err
     except SipgateConnectionError as err:
         raise ConfigEntryNotReady("Could not connect to sipgate") from err

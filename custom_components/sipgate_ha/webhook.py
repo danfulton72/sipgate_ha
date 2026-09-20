@@ -157,4 +157,4 @@ def _handle_hangup(
     runtime = _runtime(entry)
     runtime.call_state.ended(data)
     hass.bus.async_fire(EVENT_CALL_ENDED, data)
-    hass.async_create_task(runtime.history_coordinator.async_request_refresh())
+    hass.async_create_task(runtime.history_coordinator.async_refresh())

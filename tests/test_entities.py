@@ -72,9 +72,9 @@ async def test_entities_follow_webhooks(
     )
     await hass.async_block_till_done()
 
-    assert hass.states[active_id].state == "on"
-    assert hass.states[state_id].state == "ringing"
-    assert hass.states[caller_id].state == "+442071234567"
+    assert hass.states.get(active_id).state == "on"
+    assert hass.states.get(state_id).state == "ringing"
+    assert hass.states.get(caller_id).state == "+442071234567"
 
     await client.post(
         "/api/webhook/test-webhook-id",
@@ -86,7 +86,7 @@ async def test_entities_follow_webhooks(
         },
     )
     await hass.async_block_till_done()
-    assert hass.states[state_id].state == "answered"
+    assert hass.states.get(state_id).state == "answered"
 
     await client.post(
         "/api/webhook/test-webhook-id",
@@ -99,8 +99,8 @@ async def test_entities_follow_webhooks(
     )
     await hass.async_block_till_done()
 
-    assert hass.states[active_id].state == "off"
-    assert hass.states[state_id].state == "idle"
-    assert hass.states[last_call_id].state == "normalClearing"
-    assert hass.states[history_id].state == "1"
-    assert hass.states[history_id].attributes["calls"][0]["callId"] == "old-call"
+    assert hass.states.get(active_id).state == "off"
+    assert hass.states.get(state_id).state == "idle"
+    assert hass.states.get(last_call_id).state == "normalClearing"
+    assert hass.states.get(history_id).state == "1"
+    assert hass.states.get(history_id).attributes["calls"][0]["callId"] == "old-call"

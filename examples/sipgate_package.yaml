@@ -157,6 +157,12 @@ automation:
 ###############################################################################
 
 input_text:
+  sipgate_sms_id:
+    name: Sipgate SMS ID
+    icon: mdi:message-cog
+    initial: s0
+    max: 16
+
   sipgate_sms_recipient:
     name: Sipgate SMS recipient
     icon: mdi:cellphone

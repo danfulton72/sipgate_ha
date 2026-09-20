@@ -11,6 +11,7 @@ from custom_components.sipgate_ha.api import (
     SipgateAuthenticationError,
     SipgateAuthorizationError,
     SipgateClient,
+    SipgateCredentialFormatError,
 )
 from custom_components.sipgate_ha.const import API_BASE_URL
 
@@ -59,3 +60,23 @@ async def test_authorization_error(hass: HomeAssistant, aioclient_mock) -> None:
 
     with pytest.raises(SipgateAuthorizationError):
         await client.async_hang_up("call-123")
+
+
+def test_invalid_token_id_format(hass: HomeAssistant) -> None:
+    """Token IDs containing a colon are rejected before any request is made."""
+    with pytest.raises(SipgateCredentialFormatError) as err:
+        SipgateClient(
+            async_get_clientsession(hass),
+            "token-id:secret",
+            "secret",
+        )
+
+    assert err.value.field == "token_id"
+
+
+def test_empty_token_rejected(hass: HomeAssistant) -> None:
+    """An empty PAT secret is rejected before any request is made."""
+    with pytest.raises(SipgateCredentialFormatError) as err:
+        SipgateClient(async_get_clientsession(hass), "token-id", "")
+
+    assert err.value.field == "token"

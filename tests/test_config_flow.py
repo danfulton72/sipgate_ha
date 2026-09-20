@@ -152,6 +152,30 @@ async def test_unexpected_api_error(hass: HomeAssistant, aioclient_mock) -> None
     assert result["errors"] == {"base": "unknown"}
 
 
+async def test_reauth_flow(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Valid replacement credentials complete the reauthentication flow."""
+    result = await mock_config_entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert not result["errors"]
+
+    aioclient_mock.get(f"{API_BASE_URL}/calls", json=[])
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_TOKEN_ID: "token-reauth-0",
+            CONF_TOKEN: "reauth-secret",
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_config_entry.data[CONF_TOKEN_ID] == "token-reauth-0"
+    assert mock_config_entry.data[CONF_TOKEN] == "reauth-secret"
+
+
 async def test_reconfigure_flow(
     hass: HomeAssistant, mock_config_entry, aioclient_mock
 ) -> None:

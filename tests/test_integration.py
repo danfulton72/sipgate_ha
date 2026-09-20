@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.sipgate_ha.const import (
@@ -247,3 +249,19 @@ async def test_click_to_call_action(
     runtime = mock_config_entry.runtime_data
     assert runtime.call_state.current_call["call_id"] == "session-123"
     assert runtime.call_state.state == "ringing"
+
+
+async def test_recording_permission_error(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """RTCM permission failures become useful Home Assistant action errors."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-123/recording", status=403)
+
+    with pytest.raises(HomeAssistantError, match="permission"):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_START_RECORDING,
+            {ATTR_CALL_ID: "call-123", ATTR_ANNOUNCEMENT: True},
+            blocking=True,
+        )

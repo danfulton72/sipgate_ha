@@ -58,14 +58,16 @@
     "step": {
       "init": {
         "title": "sipgate.io options",
-        "description": "Caller names are optional. Enter one contact per line as `number=Name`. Matching uses the final significant digits so national and international forms can match.",
+        "description": "Caller names are optional. Enter one contact per line as `number=Name`. Recent call history always refreshes on startup and when a call ends; set the periodic history interval to 0 to disable polling.",
         "data": {
           "include_outgoing": "Fire call-started events for outgoing calls",
           "significant_digits": "Digits used for contact matching",
-          "contacts": "Caller name mappings"
+          "contacts": "Caller name mappings",
+          "history_refresh_minutes": "History auto-refresh interval (minutes)"
         },
         "data_description": {
-          "contacts": "Example: +442071234567=Mum"
+          "contacts": "Example: +442071234567=Mum",
+          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval."
         }
       }
     },
@@ -171,6 +173,12 @@
       },
       "recent_calls": {
         "name": "Recent calls"
+      },
+      "api_requests_today": {
+        "name": "API requests today"
+      },
+      "api_requests_lifetime": {
+        "name": "API requests lifetime"
       }
     }
   }

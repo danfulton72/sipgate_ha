@@ -1,6 +1,6 @@
 # sipgate.io for Home Assistant
 
-A native Home Assistant custom integration for **sipgate.io calls**. It receives `newCall`, `answer`, and `hangup` webhooks directly inside Home Assistant, maintains live call-state entities, exposes recent call history, resolves optional caller-name mappings, and provides native actions for hang-up, call recording, and click-to-call.
+A native Home Assistant custom integration for **sipgate.io calls**. It receives `newCall`, `answer`, and `hangup` webhooks directly inside Home Assistant, maintains live call-state entities, exposes recent call history, resolves optional caller-name mappings, and provides native actions for hang-up, call recording, click-to-call, and SMS.
 
 There is no sidecar container, no long-lived Home Assistant access token, and
 no YAML required to configure the integration itself.
@@ -130,7 +130,7 @@ action: sipgate_ha.click_to_call
 data:
   from: e14
   to: "+442071234567"
-  caller_id: "+442079876543"
+  caller_id: "+441513200220"
 ```
 
 sipgate rings the source endpoint first. After it is answered, sipgate calls the destination.
@@ -173,6 +173,8 @@ homeassistant:
 
 Then copy the example to `/config/packages/sipgate.yaml`, update the notify
 action, and restart Home Assistant.
+
+A demonstration Lovelace view is included at [`examples/sipgate_dashboard.yaml`](examples/sipgate_dashboard.yaml). It uses the package SMS helpers and sets the outbound caller ID to `+441513200220`.
 
 ## Caller names
 

@@ -369,7 +369,7 @@ cards:
             })} ${time}`;
           })()
 
-      - name: ""
+      - name: Direction
         id: direction
         data: calls
         align: center
@@ -388,7 +388,7 @@ cards:
               : incoming
                 ? 'var(--info-color, var(--primary-color))'
                 : 'var(--primary-color)';
-            return `<span style="font-size:20px;color:${colour}">${incoming ? '↙' : '↗'}</span>`;
+            return `<span style="font-weight:600;color:${colour}">${incoming ? '↙ Incoming' : '↗ Outgoing'}</span>`;
           })()
 
       - name: Party
@@ -412,7 +412,9 @@ cards:
               incoming ? (x.targetAlias || '') : (x.sourceAlias || '')
             ).trim();
             const localNumber = incoming ? x.target : x.source;
-            const local = localAlias || localNumber || 'Unknown';
+            const local = localAlias && localNumber
+              ? `${localAlias} (${localNumber})`
+              : (localAlias || localNumber || 'Unknown');
             const label = alias || number || 'Unknown';
             const detail = alias && number ? number : '';
             const esc = value => String(value || '')

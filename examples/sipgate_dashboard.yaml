@@ -375,8 +375,10 @@ cards:
         align: center
         modify: >-
           (() => {
-            const direction = String(x.direction || '').toLowerCase();
-            const incoming = direction.includes('in') || x.incoming === true;
+            const direction = String(x.direction || '').toUpperCase();
+            const incoming = x.incoming === true
+              || direction === 'INCOMING'
+              || direction === 'MISSED_INCOMING';
             const status = String(
               x.callStatus || x.status || ''
             ).toUpperCase();
@@ -394,17 +396,23 @@ cards:
         data: calls
         modify: >-
           (() => {
-            const direction = String(x.direction || '').toLowerCase();
-            const incoming = direction.includes('in') || x.incoming === true;
+            const direction = String(x.direction || '').toUpperCase();
+            const incoming = x.incoming === true
+              || direction === 'INCOMING'
+              || direction === 'MISSED_INCOMING';
             const status = String(
               x.callStatus || x.status || ''
             ).toUpperCase();
             const missed = status === 'NOPICKUP' && incoming;
-            const alias = incoming ? x.sourceAlias : x.targetAlias;
+            const alias = String(
+              incoming ? (x.sourceAlias || '') : (x.targetAlias || '')
+            ).trim();
             const number = incoming ? x.source : x.target;
-            const local = incoming
-              ? (x.targetAlias || x.target || '+441513200220')
-              : (x.sourceAlias || x.source || '+441513200220');
+            const localAlias = String(
+              incoming ? (x.targetAlias || '') : (x.sourceAlias || '')
+            ).trim();
+            const localNumber = incoming ? x.target : x.source;
+            const local = localAlias || localNumber || 'Unknown';
             const label = alias || number || 'Unknown';
             const detail = alias && number ? number : '';
             const esc = value => String(value || '')
@@ -430,7 +438,14 @@ cards:
               return '<span style="color:var(--success-color, var(--green-color));font-weight:600">Answered</span>';
             }
             if (status === 'NOPICKUP') {
-              return '<span style="color:var(--error-color);font-weight:600">Missed</span>';
+              const direction = String(x.direction || '').toUpperCase();
+              const incoming = x.incoming === true
+                || direction === 'INCOMING'
+                || direction === 'MISSED_INCOMING';
+              if (incoming) {
+                return '<span style="color:var(--error-color);font-weight:600">Missed</span>';
+              }
+              return '<span style="color:var(--warning-color, var(--amber-color));font-weight:600">No answer</span>';
             }
             const safe = status
               .replaceAll('&', '&amp;')
@@ -442,8 +457,19 @@ cards:
       - name: Duration
         id: duration
         data: calls.duration
-        fmt: duration
+        sort_unmodified: true
         align: right
+        modify: >-
+          (() => {
+            const total = Math.max(0, Math.floor(Number(x) || 0));
+            const hours = Math.floor(total / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const seconds = total % 60;
+            if (hours > 0) {
+              return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            return `${minutes}:${String(seconds).padStart(2, '0')}`;
+          })()
 
       - name: Rec
         id: recording

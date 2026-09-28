@@ -43,7 +43,11 @@ from .const import (
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_PUBLIC_URL,
     CONF_TOKEN_ID,
+    DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+    DEFAULT_AUTO_RECORD_CALLS,
     DEFAULT_HISTORY_REFRESH_MINUTES,
+    LEGACY_CONF_AUTO_RECORD_ANNOUNCEMENT,
+    LEGACY_CONF_AUTO_RECORD_CALLS,
     DOMAIN,
     NAME,
     SERVICE_CLICK_TO_CALL,
@@ -57,7 +61,17 @@ from .helpers import build_webhook_url
 from .webhook import async_handle_webhook
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR)
+PLATFORMS = (Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH)
+
+
+@dataclass(slots=True)
+class SipgateRecordingPreferences:
+    """Direction-specific automatic recording preferences."""
+
+    record_incoming: bool = DEFAULT_AUTO_RECORD_CALLS
+    announce_incoming: bool = DEFAULT_AUTO_RECORD_ANNOUNCEMENT
+    record_outgoing: bool = DEFAULT_AUTO_RECORD_CALLS
+    announce_outgoing: bool = DEFAULT_AUTO_RECORD_ANNOUNCEMENT
 
 
 @dataclass(slots=True)
@@ -69,6 +83,7 @@ class SipgateRuntimeData:
     call_state: SipgateCallState
     history_coordinator: SipgateHistoryCoordinator
     api_usage: SipgateApiUsage
+    recording_preferences: SipgateRecordingPreferences
 
 
 def _get_runtime(hass: HomeAssistant) -> SipgateRuntimeData:
@@ -289,6 +304,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         ),
     )
+    legacy_auto_record = bool(
+        entry.options.get(
+            LEGACY_CONF_AUTO_RECORD_CALLS,
+            DEFAULT_AUTO_RECORD_CALLS,
+        )
+    )
+    legacy_announcement = bool(
+        entry.options.get(
+            LEGACY_CONF_AUTO_RECORD_ANNOUNCEMENT,
+            DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+        )
+    )
+    recording_preferences = SipgateRecordingPreferences(
+        record_incoming=legacy_auto_record,
+        announce_incoming=legacy_announcement,
+        record_outgoing=legacy_auto_record,
+        announce_outgoing=legacy_announcement,
+    )
+
     api_usage.start()
     entry.runtime_data = SipgateRuntimeData(
         client=client,
@@ -296,6 +330,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         call_state=call_state,
         history_coordinator=history_coordinator,
         api_usage=api_usage,
+        recording_preferences=recording_preferences,
     )
 
     ha_webhook.async_register(

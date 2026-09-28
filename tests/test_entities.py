@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.sipgate_ha.const import API_BASE_URL, DOMAIN
+from custom_components.sipgate_ha.const import (
+    API_BASE_URL,
+    DOMAIN,
+    LEGACY_CONF_AUTO_RECORD_ANNOUNCEMENT,
+    LEGACY_CONF_AUTO_RECORD_CALLS,
+)
 
 
 async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
@@ -143,3 +149,77 @@ async def test_api_usage_persists_across_reload(
     runtime = mock_config_entry.runtime_data
     assert runtime.api_usage.today == 4
     assert runtime.api_usage.lifetime == 4
+
+
+async def test_recording_switches_control_runtime_preferences(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Recording and announcement preferences are exposed as config switches."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    registry = er.async_get(hass)
+
+    entity_ids = {
+        key: registry.async_get_entity_id(
+            "switch", DOMAIN, f"{mock_config_entry.entry_id}_{key}"
+        )
+        for key in (
+            "record_incoming_calls",
+            "announce_incoming_recording",
+            "record_outgoing_calls",
+            "announce_outgoing_recording",
+        )
+    }
+    assert all(entity_ids.values())
+    assert all(
+        hass.states.get(entity_id).state == STATE_OFF
+        for entity_id in entity_ids.values()
+    )
+
+    await hass.services.async_call(
+        "switch",
+        "turn_on",
+        {"entity_id": entity_ids["record_incoming_calls"]},
+        blocking=True,
+    )
+    await hass.services.async_call(
+        "switch",
+        "turn_on",
+        {"entity_id": entity_ids["announce_outgoing_recording"]},
+        blocking=True,
+    )
+
+    assert hass.states.get(entity_ids["record_incoming_calls"]).state == STATE_ON
+    assert hass.states.get(entity_ids["announce_outgoing_recording"]).state == STATE_ON
+
+    preferences = mock_config_entry.runtime_data.recording_preferences
+    assert preferences.record_incoming is True
+    assert preferences.announce_incoming is False
+    assert preferences.record_outgoing is False
+    assert preferences.announce_outgoing is True
+
+
+async def test_legacy_recording_options_seed_switch_defaults(
+    hass: HomeAssistant, mock_config_entry, aioclient_mock
+) -> None:
+    """Earlier branch options seed all four switches until switch state is saved."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            LEGACY_CONF_AUTO_RECORD_CALLS: True,
+            LEGACY_CONF_AUTO_RECORD_ANNOUNCEMENT: True,
+        },
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    registry = er.async_get(hass)
+
+    for key in (
+        "record_incoming_calls",
+        "announce_incoming_recording",
+        "record_outgoing_calls",
+        "announce_outgoing_recording",
+    ):
+        entity_id = registry.async_get_entity_id(
+            "switch", DOMAIN, f"{mock_config_entry.entry_id}_{key}"
+        )
+        assert entity_id is not None
+        assert hass.states.get(entity_id).state == STATE_ON

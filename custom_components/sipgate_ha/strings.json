@@ -58,20 +58,16 @@
     "step": {
       "init": {
         "title": "sipgate.io options",
-        "description": "Caller names, outgoing call events, call-history polling, and automatic call recording are configurable here. Auto-recording applies to answered incoming and outgoing calls when the corresponding sipgate webhook is configured.",
+        "description": "Caller names, outgoing call events, and call-history polling are configurable here. Automatic recording and recording announcements are controlled by switch entities on the sipgate.io device.",
         "data": {
           "include_outgoing": "Fire call-started events for outgoing calls",
           "significant_digits": "Digits used for contact matching",
           "contacts": "Caller name mappings",
-          "history_refresh_minutes": "History auto-refresh interval (minutes)",
-          "auto_record_calls": "Automatically record answered calls",
-          "auto_record_announcement": "Play sipgate recording announcement"
+          "history_refresh_minutes": "History auto-refresh interval (minutes)"
         },
         "data_description": {
           "contacts": "Example: +442071234567=Mum",
-          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval.",
-          "auto_record_calls": "Requires `rtcm:write`. Disabled by default. To record outgoing calls, configure sipgate's Outgoing calls webhook to use the same Home Assistant webhook URL.",
-          "auto_record_announcement": "When automatic recording is enabled, ask sipgate to announce that recording has started. Leave off to start recording without the sipgate announcement."
+          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval."
         }
       }
     },
@@ -183,6 +179,20 @@
       },
       "api_requests_lifetime": {
         "name": "API requests lifetime"
+      }
+    },
+    "switch": {
+      "record_incoming_calls": {
+        "name": "Record incoming calls"
+      },
+      "announce_incoming_recording": {
+        "name": "Announce incoming recording"
+      },
+      "record_outgoing_calls": {
+        "name": "Record outgoing calls"
+      },
+      "announce_outgoing_recording": {
+        "name": "Announce outgoing recording"
       }
     }
   }

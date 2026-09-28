@@ -9,8 +9,6 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.sipgate_ha.const import (
     API_BASE_URL,
-    CONF_AUTO_RECORD_ANNOUNCEMENT,
-    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
@@ -140,16 +138,12 @@ async def test_options_flow(hass: HomeAssistant, mock_config_entry) -> None:
             CONF_SIGNIFICANT_DIGITS: 10,
             CONF_CONTACTS: "+442071234567=Mum",
             CONF_HISTORY_REFRESH_MINUTES: 15,
-            CONF_AUTO_RECORD_CALLS: True,
-            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_INCLUDE_OUTGOING] is True
     assert result["data"][CONF_SIGNIFICANT_DIGITS] == 10
     assert result["data"][CONF_HISTORY_REFRESH_MINUTES] == 15
-    assert result["data"][CONF_AUTO_RECORD_CALLS] is True
-    assert result["data"][CONF_AUTO_RECORD_ANNOUNCEMENT] is False
 
 
 async def test_options_reject_bad_contacts(
@@ -164,8 +158,6 @@ async def test_options_reject_bad_contacts(
             CONF_SIGNIFICANT_DIGITS: 9,
             CONF_CONTACTS: "broken mapping",
             CONF_HISTORY_REFRESH_MINUTES: 0,
-            CONF_AUTO_RECORD_CALLS: False,
-            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
         },
     )
     assert result["type"] is FlowResultType.FORM

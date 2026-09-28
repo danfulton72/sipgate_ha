@@ -41,7 +41,11 @@ setup step displays the complete webhook URL.
 
 In the sipgate web console, set **Incoming calls** to that URL. The integration
 returns the XML that subscribes the same URL to sipgate's `onAnswer` and
-`onHangup` callbacks, so only one URL is required.
+`onHangup` callbacks.
+
+If you want outgoing call events or automatic recording of outgoing calls, also
+set sipgate's **Outgoing calls** webhook to the same Home Assistant URL. sipgate
+configures incoming and outgoing webhook URLs separately.
 
 > Treat the webhook URL as a secret. Home Assistant webhook endpoints are
 > intentionally unauthenticated; the random webhook ID is the bearer secret.
@@ -123,6 +127,35 @@ data:
 
 The call-state attributes track recording state when recording is started or stopped through Home Assistant. Completed recordings are also exposed through the Recent calls history sensor when sipgate includes them in the history response.
 
+#### Automatic recording
+
+Open **Settings → Devices & services → sipgate.io → Configure** to enable
+**Automatically record answered calls**. Automatic recording:
+
+- starts when sipgate sends the `answer` webhook, so ringing calls are not
+  recorded;
+- applies to both incoming and outgoing answered calls;
+- requires the PAT scope `rtcm:write`;
+- adds one sipgate REST API request per call that is automatically recorded;
+- is disabled by default for existing installations.
+
+The **Play sipgate recording announcement** option controls the
+`announcement` flag sent to sipgate. It defaults to **off**, so enabling
+automatic recording while leaving this option off sends:
+
+```json
+{
+  "value": true,
+  "announcement": false
+}
+```
+
+To automatically record outgoing calls, configure sipgate's **Outgoing calls**
+webhook to use the same Home Assistant webhook URL as **Incoming calls**. The
+**Fire call-started events for outgoing calls** option is separate: it controls
+the Home Assistant compatibility event, not whether an outgoing `answer`
+webhook is eligible for automatic recording.
+
 ### Click to call
 
 Click-to-call requires `sessions:calls:write`. The source can be a sipgate extension such as `e14` or a number. If `from` is a group/number rather than an extension, provide `device_id`.
@@ -193,8 +226,10 @@ By default, matching uses the final 9 digits, allowing national and
 international representations of the same number to match. The number of
 significant digits is configurable from 7 to 15.
 
-Outgoing `newCall` events are ignored by default and can also be enabled from
-integration options.
+Outgoing `newCall` compatibility events are ignored by default and can be
+enabled from integration options. Automatic recording is configured separately
+and applies to incoming and outgoing `answer` events when sipgate is configured
+to send those webhooks.
 
 Call history no longer polls by default. It always refreshes once on startup and
 again when a `hangup` webhook is received. In integration options, set **History
@@ -213,6 +248,7 @@ Home Assistant /api/webhook/<random-id>
     │
     ├─ newCall ──► fire sipgate_call_started + return callback XML
     ├─ answer  ──► fire sipgate_call_answered
+    │              └─ optional auto-record ► PUT /v2/calls/<callId>/recording
     └─ hangup  ──► fire sipgate_call_ended
 
 Home Assistant

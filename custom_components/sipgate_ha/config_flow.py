@@ -31,12 +31,16 @@ from .api import (
     SipgateCredentialFormatError,
 )
 from .const import (
+    CONF_AUTO_RECORD_ANNOUNCEMENT,
+    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
     CONF_PUBLIC_URL,
     CONF_SIGNIFICANT_DIGITS,
     CONF_TOKEN_ID,
+    DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+    DEFAULT_AUTO_RECORD_CALLS,
     DEFAULT_HISTORY_REFRESH_MINUTES,
     DEFAULT_INCLUDE_OUTGOING,
     DEFAULT_SIGNIFICANT_DIGITS,
@@ -288,6 +292,20 @@ class SipgateOptionsFlow(OptionsFlow):
                         DEFAULT_HISTORY_REFRESH_MINUTES,
                     ),
                 ): HISTORY_REFRESH_SELECTOR,
+                vol.Required(
+                    CONF_AUTO_RECORD_CALLS,
+                    default=options.get(
+                        CONF_AUTO_RECORD_CALLS,
+                        DEFAULT_AUTO_RECORD_CALLS,
+                    ),
+                ): bool,
+                vol.Required(
+                    CONF_AUTO_RECORD_ANNOUNCEMENT,
+                    default=options.get(
+                        CONF_AUTO_RECORD_ANNOUNCEMENT,
+                        DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+                    ),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

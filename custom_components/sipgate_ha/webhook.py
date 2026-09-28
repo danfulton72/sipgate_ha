@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from html import escape
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
@@ -11,10 +12,15 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from multidict import MultiDictProxy
 
+from .api import SipgateError
 from .const import (
+    CONF_AUTO_RECORD_ANNOUNCEMENT,
+    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_INCLUDE_OUTGOING,
     CONF_SIGNIFICANT_DIGITS,
+    DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+    DEFAULT_AUTO_RECORD_CALLS,
     DEFAULT_INCLUDE_OUTGOING,
     DEFAULT_SIGNIFICANT_DIGITS,
     EVENT_CALL_ANSWERED,
@@ -25,6 +31,8 @@ from .helpers import describe_number, parse_contacts, to_e164
 
 if TYPE_CHECKING:
     from . import SipgateRuntimeData
+
+_LOGGER = logging.getLogger(__name__)
 
 XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>'
 
@@ -139,8 +147,45 @@ def _handle_answer(
             "answering_number": to_e164(_string(form, "answeringNumber")),
         }
     )
-    _runtime(entry).call_state.answered(data)
+    runtime = _runtime(entry)
+    runtime.call_state.answered(data)
     hass.bus.async_fire(EVENT_CALL_ANSWERED, data)
+
+    call_id = str(data.get("call_id") or "")
+    if (
+        call_id
+        and entry.options.get(CONF_AUTO_RECORD_CALLS, DEFAULT_AUTO_RECORD_CALLS)
+        and not runtime.call_state.active_calls.get(call_id, {}).get("recording")
+    ):
+        announcement = entry.options.get(
+            CONF_AUTO_RECORD_ANNOUNCEMENT,
+            DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
+        )
+        hass.async_create_task(
+            _async_start_auto_recording(entry, call_id, announcement)
+        )
+
+
+async def _async_start_auto_recording(
+    entry: ConfigEntry, call_id: str, announcement: bool
+) -> None:
+    """Start recording an answered call when automatic recording is enabled."""
+    runtime = _runtime(entry)
+    try:
+        await runtime.client.async_set_recording(
+            call_id,
+            recording=True,
+            announcement=announcement,
+        )
+    except SipgateError as err:
+        _LOGGER.warning(
+            "Could not automatically start recording for call %s: %s",
+            call_id,
+            err,
+        )
+        return
+
+    runtime.call_state.set_recording(call_id, True)
 
 
 def _handle_hangup(

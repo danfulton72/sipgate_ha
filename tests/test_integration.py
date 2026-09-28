@@ -18,6 +18,8 @@ from custom_components.sipgate_ha.const import (
     ATTR_RECIPIENT,
     ATTR_SMS_ID,
     ATTR_TO,
+    CONF_AUTO_RECORD_ANNOUNCEMENT,
+    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
@@ -129,6 +131,127 @@ async def test_answer_and_hangup_webhooks(
     assert answer_events[0].data["answered_by"] == "Alice"
     assert answer_events[0].data["answering_number"] == "+442079999999"
     assert ended_events[0].data["cause"] == "normalClearing"
+
+
+@pytest.mark.parametrize("direction", ["in", "out"])
+async def test_auto_record_answered_calls_without_announcement(
+    hass: HomeAssistant,
+    hass_client,
+    mock_config_entry,
+    aioclient_mock,
+    direction: str,
+) -> None:
+    """Answered incoming and outgoing calls can be recorded automatically."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            CONF_AUTO_RECORD_CALLS: True,
+            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
+        },
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-auto/recording", status=204)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "answer",
+            "callId": "call-auto",
+            "direction": direction,
+        },
+    )
+    assert response.status == 204
+    await hass.async_block_till_done()
+
+    recording_calls = [
+        call
+        for call in aioclient_mock.mock_calls
+        if call[0] == "PUT"
+        and str(call[1]) == f"{API_BASE_URL}/calls/call-auto/recording"
+    ]
+    assert len(recording_calls) == 1
+    assert recording_calls[0][2] == {
+        "value": True,
+        "announcement": False,
+    }
+    assert (
+        mock_config_entry.runtime_data.call_state.active_calls["call-auto"]["recording"]
+        is True
+    )
+
+
+async def test_auto_record_can_enable_announcement(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Automatic recording can request sipgate's recording announcement."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            CONF_AUTO_RECORD_CALLS: True,
+            CONF_AUTO_RECORD_ANNOUNCEMENT: True,
+        },
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-announced/recording", status=204)
+    client = await hass_client()
+
+    await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "answer",
+            "callId": "call-announced",
+            "direction": "in",
+        },
+    )
+    await hass.async_block_till_done()
+
+    recording_calls = [
+        call
+        for call in aioclient_mock.mock_calls
+        if call[0] == "PUT"
+        and str(call[1]) == f"{API_BASE_URL}/calls/call-announced/recording"
+    ]
+    assert recording_calls[0][2]["announcement"] is True
+
+
+async def test_auto_record_failure_keeps_call_unrecorded(
+    hass: HomeAssistant,
+    hass_client,
+    mock_config_entry,
+    aioclient_mock,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Automatic recording failures are logged without breaking the webhook."""
+    hass.config_entries.async_update_entry(
+        mock_config_entry,
+        options={
+            CONF_AUTO_RECORD_CALLS: True,
+            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
+        },
+    )
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    aioclient_mock.put(f"{API_BASE_URL}/calls/call-denied/recording", status=403)
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "answer",
+            "callId": "call-denied",
+            "direction": "out",
+        },
+    )
+    assert response.status == 204
+    await hass.async_block_till_done()
+
+    assert "Could not automatically start recording for call call-denied" in caplog.text
+    assert (
+        mock_config_entry.runtime_data.call_state.active_calls["call-denied"][
+            "recording"
+        ]
+        is False
+    )
 
 
 async def test_outgoing_ignored_by_default(

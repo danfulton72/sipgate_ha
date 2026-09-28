@@ -13,11 +13,15 @@ CONF_CONTACTS: Final = "contacts"
 CONF_INCLUDE_OUTGOING: Final = "include_outgoing"
 CONF_SIGNIFICANT_DIGITS: Final = "significant_digits"
 CONF_HISTORY_REFRESH_MINUTES: Final = "history_refresh_minutes"
+CONF_AUTO_RECORD_CALLS: Final = "auto_record_calls"
+CONF_AUTO_RECORD_ANNOUNCEMENT: Final = "auto_record_announcement"
 
 DEFAULT_INCLUDE_OUTGOING: Final = False
 DEFAULT_SIGNIFICANT_DIGITS: Final = 9
 DEFAULT_HISTORY_LIMIT: Final = 10
 DEFAULT_HISTORY_REFRESH_MINUTES: Final = 0
+DEFAULT_AUTO_RECORD_CALLS: Final = False
+DEFAULT_AUTO_RECORD_ANNOUNCEMENT: Final = False
 
 EVENT_CALL_STARTED: Final = "sipgate_call_started"
 EVENT_CALL_ANSWERED: Final = "sipgate_call_answered"

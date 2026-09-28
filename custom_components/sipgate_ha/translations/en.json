@@ -18,7 +18,7 @@
       },
       "webhook": {
         "title": "Configure the sipgate webhook",
-        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\n\n`{webhook_url}`\n\nThe same URL handles newCall, answer, and hangup events. Keep this URL private because the random webhook ID acts as its authentication secret."
+        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\\n\\n`{webhook_url}`\\n\\nThe same URL handles newCall, answer, and hangup events. To receive outgoing call events (including automatic recording of outgoing calls), also set sipgate's Outgoing calls webhook to the same URL. Keep this URL private because the random webhook ID acts as its authentication secret."
       },
       "reauth_confirm": {
         "title": "Reconnect to sipgate.io",
@@ -58,16 +58,20 @@
     "step": {
       "init": {
         "title": "sipgate.io options",
-        "description": "Caller names are optional. Enter one contact per line as `number=Name`. Recent call history always refreshes on startup and when a call ends; set the periodic history interval to 0 to disable polling.",
+        "description": "Caller names, outgoing call events, call-history polling, and automatic call recording are configurable here. Auto-recording applies to answered incoming and outgoing calls when the corresponding sipgate webhook is configured.",
         "data": {
           "include_outgoing": "Fire call-started events for outgoing calls",
           "significant_digits": "Digits used for contact matching",
           "contacts": "Caller name mappings",
-          "history_refresh_minutes": "History auto-refresh interval (minutes)"
+          "history_refresh_minutes": "History auto-refresh interval (minutes)",
+          "auto_record_calls": "Automatically record answered calls",
+          "auto_record_announcement": "Play sipgate recording announcement"
         },
         "data_description": {
           "contacts": "Example: +442071234567=Mum",
-          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval."
+          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval.",
+          "auto_record_calls": "Requires `rtcm:write`. Disabled by default. To record outgoing calls, configure sipgate's Outgoing calls webhook to use the same Home Assistant webhook URL.",
+          "auto_record_announcement": "When automatic recording is enabled, ask sipgate to announce that recording has started. Leave off to start recording without the sipgate announcement."
         }
       }
     },

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from html import escape
 from http import HTTPStatus
-import logging
 from typing import TYPE_CHECKING, Any
 
 from aiohttp.web import Request, Response

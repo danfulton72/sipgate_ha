@@ -127,34 +127,38 @@ data:
 
 The call-state attributes track recording state when recording is started or stopped through Home Assistant. Completed recordings are also exposed through the Recent calls history sensor when sipgate includes them in the history response.
 
-#### Automatic recording
+#### Automatic recording switches
 
-Open **Settings → Devices & services → sipgate.io → Configure** to enable
-**Automatically record answered calls**. Automatic recording:
+The sipgate.io device exposes four Home Assistant configuration switches:
 
-- starts when sipgate sends the `answer` webhook, so ringing calls are not
-  recorded;
-- applies to both incoming and outgoing answered calls;
-- requires the PAT scope `rtcm:write`;
-- adds one sipgate REST API request per call that is automatically recorded;
-- is disabled by default for existing installations.
+- **Record incoming calls**
+- **Announce incoming recording**
+- **Record outgoing calls**
+- **Announce outgoing recording**
 
-The **Play sipgate recording announcement** option controls the
-`announcement` flag sent to sipgate. It defaults to **off**, so enabling
-automatic recording while leaving this option off sends:
+The two **Record** switches start recording when sipgate sends an `answer`
+webhook for that direction, so ringing calls are not recorded. The matching
+**Announce** switch controls the `announcement` flag sent to sipgate for that
+direction. Announcement switches can be set independently, but have no effect
+until automatic recording is enabled for the same direction.
 
-```json
-{
-  "value": true,
-  "announcement": false
-}
-```
+All four switches default to **off** and are persisted by Home Assistant. Builds
+of this branch that previously used the global **Automatically record answered
+calls** and **Play sipgate recording announcement** integration options use
+those values as the initial state for both incoming and outgoing switches.
+
+Automatic recording requires the PAT scope `rtcm:write` and adds one sipgate
+REST API request per call that is recorded automatically.
 
 To automatically record outgoing calls, configure sipgate's **Outgoing calls**
 webhook to use the same Home Assistant webhook URL as **Incoming calls**. The
-**Fire call-started events for outgoing calls** option is separate: it controls
-the Home Assistant compatibility event, not whether an outgoing `answer`
-webhook is eligible for automatic recording.
+**Fire call-started events for outgoing calls** integration option is separate:
+it controls the Home Assistant compatibility event, not whether an outgoing
+`answer` webhook is eligible for automatic recording.
+
+The manual `sipgate_ha.start_recording` and `sipgate_ha.stop_recording`
+actions keep their explicit `announcement` fields and are not controlled by
+these switches.
 
 ### Click to call
 
@@ -227,9 +231,9 @@ international representations of the same number to match. The number of
 significant digits is configurable from 7 to 15.
 
 Outgoing `newCall` compatibility events are ignored by default and can be
-enabled from integration options. Automatic recording is configured separately
-and applies to incoming and outgoing `answer` events when sipgate is configured
-to send those webhooks.
+enabled from integration options. Automatic recording and its announcement
+setting are controlled independently for incoming and outgoing calls by the four
+switch entities on the sipgate.io device.
 
 Call history no longer polls by default. It always refreshes once on startup and
 again when a `hangup` webhook is received. In integration options, set **History

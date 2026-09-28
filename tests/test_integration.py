@@ -18,8 +18,6 @@ from custom_components.sipgate_ha.const import (
     ATTR_RECIPIENT,
     ATTR_SMS_ID,
     ATTR_TO,
-    CONF_AUTO_RECORD_ANNOUNCEMENT,
-    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
@@ -133,23 +131,27 @@ async def test_answer_and_hangup_webhooks(
     assert ended_events[0].data["cause"] == "normalClearing"
 
 
-@pytest.mark.parametrize("direction", ["in", "out"])
+@pytest.mark.parametrize(
+    ("direction", "record_attr", "announcement_attr"),
+    [
+        ("in", "record_incoming", "announce_incoming"),
+        ("out", "record_outgoing", "announce_outgoing"),
+    ],
+)
 async def test_auto_record_answered_calls_without_announcement(
     hass: HomeAssistant,
     hass_client,
     mock_config_entry,
     aioclient_mock,
     direction: str,
+    record_attr: str,
+    announcement_attr: str,
 ) -> None:
-    """Answered incoming and outgoing calls can be recorded automatically."""
-    hass.config_entries.async_update_entry(
-        mock_config_entry,
-        options={
-            CONF_AUTO_RECORD_CALLS: True,
-            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
-        },
-    )
+    """Incoming and outgoing recording switches act on their own direction."""
     await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    preferences = mock_config_entry.runtime_data.recording_preferences
+    setattr(preferences, record_attr, True)
+    setattr(preferences, announcement_attr, False)
     aioclient_mock.put(f"{API_BASE_URL}/calls/call-auto/recording", status=204)
     client = await hass_client()
 
@@ -181,18 +183,27 @@ async def test_auto_record_answered_calls_without_announcement(
     )
 
 
-async def test_auto_record_can_enable_announcement(
-    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+@pytest.mark.parametrize(
+    ("direction", "record_attr", "announcement_attr"),
+    [
+        ("in", "record_incoming", "announce_incoming"),
+        ("out", "record_outgoing", "announce_outgoing"),
+    ],
+)
+async def test_auto_record_can_enable_direction_announcement(
+    hass: HomeAssistant,
+    hass_client,
+    mock_config_entry,
+    aioclient_mock,
+    direction: str,
+    record_attr: str,
+    announcement_attr: str,
 ) -> None:
-    """Automatic recording can request sipgate's recording announcement."""
-    hass.config_entries.async_update_entry(
-        mock_config_entry,
-        options={
-            CONF_AUTO_RECORD_CALLS: True,
-            CONF_AUTO_RECORD_ANNOUNCEMENT: True,
-        },
-    )
+    """Each call direction has its own automatic recording announcement switch."""
     await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    preferences = mock_config_entry.runtime_data.recording_preferences
+    setattr(preferences, record_attr, True)
+    setattr(preferences, announcement_attr, True)
     aioclient_mock.put(f"{API_BASE_URL}/calls/call-announced/recording", status=204)
     client = await hass_client()
 
@@ -201,7 +212,7 @@ async def test_auto_record_can_enable_announcement(
         data={
             "event": "answer",
             "callId": "call-announced",
-            "direction": "in",
+            "direction": direction,
         },
     )
     await hass.async_block_till_done()
@@ -215,6 +226,33 @@ async def test_auto_record_can_enable_announcement(
     assert recording_calls[0][2]["announcement"] is True
 
 
+async def test_auto_record_direction_switches_are_independent(
+    hass: HomeAssistant, hass_client, mock_config_entry, aioclient_mock
+) -> None:
+    """Enabling incoming recording does not enable outgoing recording."""
+    await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    mock_config_entry.runtime_data.recording_preferences.record_incoming = True
+    client = await hass_client()
+
+    response = await client.post(
+        "/api/webhook/test-webhook-id",
+        data={
+            "event": "answer",
+            "callId": "call-out",
+            "direction": "out",
+        },
+    )
+    assert response.status == 204
+    await hass.async_block_till_done()
+
+    assert not [
+        call
+        for call in aioclient_mock.mock_calls
+        if call[0] == "PUT"
+        and str(call[1]) == f"{API_BASE_URL}/calls/call-out/recording"
+    ]
+
+
 async def test_auto_record_failure_keeps_call_unrecorded(
     hass: HomeAssistant,
     hass_client,
@@ -223,14 +261,10 @@ async def test_auto_record_failure_keeps_call_unrecorded(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Automatic recording failures are logged without breaking the webhook."""
-    hass.config_entries.async_update_entry(
-        mock_config_entry,
-        options={
-            CONF_AUTO_RECORD_CALLS: True,
-            CONF_AUTO_RECORD_ANNOUNCEMENT: False,
-        },
-    )
     await _setup_entry(hass, mock_config_entry, aioclient_mock)
+    preferences = mock_config_entry.runtime_data.recording_preferences
+    preferences.record_outgoing = True
+    preferences.announce_outgoing = False
     aioclient_mock.put(f"{API_BASE_URL}/calls/call-denied/recording", status=403)
     client = await hass_client()
 

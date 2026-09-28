@@ -189,9 +189,7 @@ async def test_recording_switches_control_runtime_preferences(
     )
 
     assert hass.states.get(entity_ids["record_incoming_calls"]).state == STATE_ON
-    assert (
-        hass.states.get(entity_ids["announce_outgoing_recording"]).state == STATE_ON
-    )
+    assert hass.states.get(entity_ids["announce_outgoing_recording"]).state == STATE_ON
 
     preferences = mock_config_entry.runtime_data.recording_preferences
     assert preferences.record_incoming is True

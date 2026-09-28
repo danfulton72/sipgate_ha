@@ -64,8 +64,7 @@ async def async_setup_entry(
         return
 
     async_add_entities(
-        SipgateRecordingSwitch(entry, runtime, description)
-        for description in SWITCHES
+        SipgateRecordingSwitch(entry, runtime, description) for description in SWITCHES
     )
 
 

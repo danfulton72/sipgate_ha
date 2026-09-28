@@ -14,13 +14,9 @@ from multidict import MultiDictProxy
 
 from .api import SipgateError
 from .const import (
-    CONF_AUTO_RECORD_ANNOUNCEMENT,
-    CONF_AUTO_RECORD_CALLS,
     CONF_CONTACTS,
     CONF_INCLUDE_OUTGOING,
     CONF_SIGNIFICANT_DIGITS,
-    DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
-    DEFAULT_AUTO_RECORD_CALLS,
     DEFAULT_INCLUDE_OUTGOING,
     DEFAULT_SIGNIFICANT_DIGITS,
     EVENT_CALL_ANSWERED,
@@ -151,16 +147,23 @@ def _handle_answer(
     runtime.call_state.answered(data)
     hass.bus.async_fire(EVENT_CALL_ANSWERED, data)
 
+    direction = str(data.get("direction") or "")
+    if direction == "in":
+        auto_record = runtime.recording_preferences.record_incoming
+        announcement = runtime.recording_preferences.announce_incoming
+    elif direction == "out":
+        auto_record = runtime.recording_preferences.record_outgoing
+        announcement = runtime.recording_preferences.announce_outgoing
+    else:
+        auto_record = False
+        announcement = False
+
     call_id = str(data.get("call_id") or "")
     if (
         call_id
-        and entry.options.get(CONF_AUTO_RECORD_CALLS, DEFAULT_AUTO_RECORD_CALLS)
+        and auto_record
         and not runtime.call_state.active_calls.get(call_id, {}).get("recording")
     ):
-        announcement = entry.options.get(
-            CONF_AUTO_RECORD_ANNOUNCEMENT,
-            DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
-        )
         hass.async_create_task(
             _async_start_auto_recording(entry, call_id, announcement)
         )

@@ -18,7 +18,7 @@
       },
       "webhook": {
         "title": "Configure the sipgate webhook",
-        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\n\n`{webhook_url}`\n\nThe same URL handles newCall, answer, and hangup events. Keep this URL private because the random webhook ID acts as its authentication secret."
+        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\\n\\n`{webhook_url}`\\n\\nThe same URL handles newCall, answer, and hangup events. To receive outgoing call events (including automatic recording of outgoing calls), also set sipgate's Outgoing calls webhook to the same URL. Keep this URL private because the random webhook ID acts as its authentication secret."
       },
       "reauth_confirm": {
         "title": "Reconnect to sipgate.io",

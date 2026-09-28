@@ -133,7 +133,6 @@ async def test_answer_and_hangup_webhooks(
     assert ended_events[0].data["cause"] == "normalClearing"
 
 
-
 @pytest.mark.parametrize("direction", ["in", "out"])
 async def test_auto_record_answered_calls_without_announcement(
     hass: HomeAssistant,

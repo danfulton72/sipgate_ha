@@ -17,6 +17,9 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -31,12 +34,17 @@ from .api import (
     SipgateCredentialFormatError,
 )
 from .const import (
+    ACCOUNT_TYPES,
+    CONF_ACCOUNT_TYPE,
+    CONF_CHANNEL_IDS,
     CONF_CONTACTS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_INCLUDE_OUTGOING,
     CONF_PUBLIC_URL,
     CONF_SIGNIFICANT_DIGITS,
     CONF_TOKEN_ID,
+    DEFAULT_ACCOUNT_TYPE,
+    DEFAULT_CHANNEL_IDS,
     DEFAULT_HISTORY_REFRESH_MINUTES,
     DEFAULT_INCLUDE_OUTGOING,
     DEFAULT_SIGNIFICANT_DIGITS,
@@ -64,6 +72,13 @@ DIGITS_SELECTOR = NumberSelector(
 )
 HISTORY_REFRESH_SELECTOR = NumberSelector(
     NumberSelectorConfig(min=0, max=1440, step=1, mode=NumberSelectorMode.BOX)
+)
+ACCOUNT_TYPE_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=list(ACCOUNT_TYPES),
+        mode=SelectSelectorMode.DROPDOWN,
+        translation_key=CONF_ACCOUNT_TYPE,
+    )
 )
 
 
@@ -288,6 +303,19 @@ class SipgateOptionsFlow(OptionsFlow):
                         DEFAULT_HISTORY_REFRESH_MINUTES,
                     ),
                 ): HISTORY_REFRESH_SELECTOR,
+                vol.Required(
+                    CONF_ACCOUNT_TYPE,
+                    default=options.get(CONF_ACCOUNT_TYPE, DEFAULT_ACCOUNT_TYPE),
+                ): ACCOUNT_TYPE_SELECTOR,
+                # suggested_value (not default) so clearing the field sticks.
+                vol.Optional(
+                    CONF_CHANNEL_IDS,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_CHANNEL_IDS, DEFAULT_CHANNEL_IDS
+                        )
+                    },
+                ): str,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

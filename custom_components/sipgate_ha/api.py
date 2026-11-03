@@ -147,21 +147,35 @@ class SipgateClient:
         device_id: str | None = None,
         caller_id: str | None = None,
     ) -> str | None:
-        """Initiate a click-to-call session and return its session ID."""
-        data: dict[str, Any] = {
-            "caller": from_endpoint,
-            "callee": to_number,
-        }
-        if device_id:
-            data["deviceId"] = device_id
-        if caller_id:
-            data["callerId"] = caller_id
+        """Start a classic click-to-call session and return its session ID."""
+        response = await self._request(
+            "POST",
+            "/sessions/calls",
+            json_data=_click_to_call_body(
+                from_endpoint, to_number, device_id, caller_id
+            ),
+        )
+        return _response_id(response, "sessionId")
 
-        response = await self._request("POST", "/sessions/calls", json_data=data)
-        if isinstance(response, dict):
-            session_id = response.get("sessionId")
-            return str(session_id) if session_id else None
-        return None
+    async def async_neo_click_to_call(
+        self,
+        *,
+        from_endpoint: str,
+        to_number: str,
+        device_id: str | None = None,
+        caller_id: str | None = None,
+        channel_id: str | None = None,
+    ) -> str | None:
+        """Start a sipgate Neo click-to-dial call and return its call ID.
+
+        sipgate Neo replaces POST /sessions/calls with POST /calls. channelId is
+        optional and defaults to the device's default channel.
+        """
+        data = _click_to_call_body(from_endpoint, to_number, device_id, caller_id)
+        if channel_id:
+            data["channelId"] = channel_id
+        response = await self._request("POST", "/calls", json_data=data)
+        return _response_id(response, "callId", "sessionId", "id")
 
     async def async_send_sms(
         self,
@@ -202,6 +216,130 @@ class SipgateClient:
             if isinstance(item, dict):
                 calls.append(_normalize_history_entry(item))
         return calls
+
+    async def async_get_channels(self) -> list[dict[str, str]]:
+        """Return the account's sipgate Neo channels as id/name pairs."""
+        response = await self._request("GET", "/channels")
+        items = _extract_items(response, "items", "channels", "data")
+        if items is None:
+            raise SipgateApiError(HTTPStatus.OK, "Unexpected channels response")
+
+        channels: list[dict[str, str]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            channel_id = item.get("id") or item.get("channelId")
+            if not channel_id:
+                continue
+            name = item.get("alias") or item.get("name") or channel_id
+            channels.append({"id": str(channel_id), "name": str(name)})
+        return channels
+
+    async def async_get_channel_events(
+        self, channel_id: str, limit: int
+    ) -> list[dict[str, Any]]:
+        """Return recent call events for one sipgate Neo channel."""
+        response = await self._request(
+            "GET",
+            f"/channels/{quote(channel_id, safe='')}/events",
+            params={"limit": limit},
+        )
+        items = _extract_items(response, "items", "events", "data")
+        if items is None:
+            raise SipgateApiError(HTTPStatus.OK, "Unexpected channel events response")
+
+        events: list[dict[str, Any]] = []
+        for item in items[:limit]:
+            if isinstance(item, dict):
+                event = _normalize_channel_event(item)
+                event.setdefault("channelId", channel_id)
+                events.append(event)
+        return events
+
+
+def _click_to_call_body(
+    from_endpoint: str,
+    to_number: str,
+    device_id: str | None,
+    caller_id: str | None,
+) -> dict[str, Any]:
+    """Build the shared click-to-call request body."""
+    data: dict[str, Any] = {"caller": from_endpoint, "callee": to_number}
+    if device_id:
+        data["deviceId"] = device_id
+    if caller_id:
+        data["callerId"] = caller_id
+    return data
+
+
+def _response_id(response: Any, *keys: str) -> str | None:
+    """Return the first present identifier from a JSON response."""
+    if isinstance(response, dict):
+        for key in keys:
+            if value := response.get(key):
+                return str(value)
+    return None
+
+
+def _extract_items(response: Any, *keys: str) -> list[Any] | None:
+    """Return a list payload, either bare or wrapped in one of the given keys."""
+    if isinstance(response, list):
+        return response
+    if isinstance(response, dict):
+        for key in keys:
+            if isinstance(response.get(key), list):
+                return response[key]
+    return None
+
+
+# sipgate does not publish the Neo channel-event schema outside its interactive
+# Swagger UI, so keep the classic history fields plus the likely Neo equivalents.
+_CHANNEL_EVENT_FIELDS = (
+    "id",
+    "callId",
+    "channelId",
+    "type",
+    "source",
+    "target",
+    "from",
+    "to",
+    "caller",
+    "callee",
+    "sourceAlias",
+    "targetAlias",
+    "direction",
+    "incoming",
+    "status",
+    "callStatus",
+    "result",
+    "answered",
+    "created",
+    "lastModified",
+    "timestamp",
+    "startTime",
+    "endTime",
+    "start",
+    "end",
+    "duration",
+    "recordings",
+)
+
+_EVENT_TIME_FIELDS = ("created", "timestamp", "startTime", "start", "lastModified")
+
+
+def _normalize_channel_event(item: dict[str, Any]) -> dict[str, Any]:
+    """Keep useful channel-event fields and recordings."""
+    event = {key: item[key] for key in _CHANNEL_EVENT_FIELDS if key in item}
+    event.setdefault("recordings", [])
+    return event
+
+
+def event_sort_key(event: dict[str, Any]) -> str:
+    """Return a sortable timestamp for a normalized call event."""
+    for key in _EVENT_TIME_FIELDS:
+        if value := event.get(key):
+            return str(value)
+    return ""
 
 
 def _normalize_history_entry(item: dict[str, Any]) -> dict[str, Any]:

@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Connect to sipgate.io",
-        "description": "Create a sipgate Personal Access Token with `account:read`. Add `rtcm:write` for Hang up/recording, `history:read` for call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS.",
+        "description": "Create a sipgate Personal Access Token with `account:read`. Add `rtcm:write` for Hang up/recording, `history:read` for call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS. On sipgate Neo, also grant the token access to channels so call history can be read from channel events.",
         "data": {
           "token_id": "Personal Access Token ID",
           "token": "Personal Access Token",
@@ -13,12 +13,12 @@
         "data_description": {
           "token_id": "The token ID shown by sipgate when the Personal Access Token is created.",
           "token": "The Personal Access Token secret.",
-          "public_url": "The externally reachable base URL for Home Assistant."
+          "public_url": "The externally reachable HTTPS base URL for Home Assistant. sipgate requires a publicly trusted certificate and does not follow redirects."
         }
       },
       "webhook": {
         "title": "Configure the sipgate webhook",
-        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\\n\\n`{webhook_url}`\\n\\nThe same URL handles newCall, answer, and hangup events. To receive outgoing call events (including automatic recording of outgoing calls), also set sipgate's Outgoing calls webhook to the same URL. Keep this URL private because the random webhook ID acts as its authentication secret."
+        "description": "In the sipgate web console, set the Incoming calls webhook URL to:\\n\\n`{webhook_url}`\\n\\nThe same URL handles newCall, answer, and hangup events. To receive outgoing call events (including automatic recording of outgoing calls), also set sipgate's Outgoing calls webhook to the same URL. On sipgate Neo, webhooks are enabled per channel: make sure every channel you want events for is selected. The URL must be reachable over HTTPS without redirects. Keep this URL private because the random webhook ID acts as its authentication secret."
       },
       "reauth_confirm": {
         "title": "Reconnect to sipgate.io",
@@ -44,7 +44,7 @@
       "invalid_token_id": "Enter only the Personal Access Token ID, for example token-ABC123-0. Do not paste ID:secret or a Basic authorization value.",
       "invalid_token": "Enter the Personal Access Token secret.",
       "missing_account_scope": "The token is valid but is missing the required `account:read` permission.",
-      "invalid_url": "Enter a valid HTTP or HTTPS Home Assistant base URL without a query string or fragment.",
+      "invalid_url": "Enter a valid HTTPS Home Assistant base URL without a query string or fragment. sipgate does not deliver webhooks to HTTP URLs.",
       "unknown": "sipgate returned an unexpected response while validating the token."
     },
     "abort": {
@@ -58,16 +58,20 @@
     "step": {
       "init": {
         "title": "sipgate.io options",
-        "description": "Caller names, outgoing call events, and call-history polling are configurable here. Automatic recording and recording announcements are controlled by switch entities on the sipgate.io device.",
+        "description": "Caller names, outgoing call events, call-history polling, and the sipgate platform are configurable here. Automatic recording and recording announcements are controlled by switch entities on the sipgate.io device.",
         "data": {
           "include_outgoing": "Fire call-started events for outgoing calls",
           "significant_digits": "Digits used for contact matching",
           "contacts": "Caller name mappings",
-          "history_refresh_minutes": "History auto-refresh interval (minutes)"
+          "history_refresh_minutes": "History auto-refresh interval (minutes)",
+          "account_type": "sipgate platform",
+          "channel_ids": "sipgate Neo channel IDs"
         },
         "data_description": {
           "contacts": "Example: +442071234567=Mum",
-          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval."
+          "history_refresh_minutes": "0 disables periodic polling. Use 1–1440 minutes for a fallback refresh interval.",
+          "account_type": "Automatic detects sipgate Neo by checking for channels, and re-checks every few hours so the upgrade is picked up without a restart. Choose Classic or sipgate Neo to override detection.",
+          "channel_ids": "Comma-separated channel IDs whose call events form the Recent calls sensor on sipgate Neo. Leave empty to use the first five channels the token can see. The token's user must be a member of each channel."
         }
       }
     },
@@ -116,7 +120,7 @@
     },
     "click_to_call": {
       "name": "Click to call",
-      "description": "Initiate a sipgate click-to-call session. Your source endpoint rings first; after pickup sipgate calls the destination.",
+      "description": "Initiate a sipgate click-to-call. Your source endpoint rings first; after pickup sipgate calls the destination. Uses POST /calls on sipgate Neo and POST /sessions/calls on Classic.",
       "fields": {
         "from": {
           "name": "From",
@@ -133,6 +137,10 @@
         "caller_id": {
           "name": "Caller ID",
           "description": "Optional caller ID presented to the destination."
+        },
+        "channel_id": {
+          "name": "Channel ID",
+          "description": "sipgate Neo only: the channel to call from. Defaults to the device's default channel. Ignored on Classic accounts."
         }
       }
     },
@@ -194,6 +202,21 @@
       "announce_outgoing_recording": {
         "name": "Announce outgoing recording"
       }
+    }
+  },
+  "selector": {
+    "account_type": {
+      "options": {
+        "auto": "Automatic",
+        "classic": "Classic",
+        "neo": "sipgate Neo"
+      }
+    }
+  },
+  "issues": {
+    "insecure_public_url": {
+      "title": "sipgate cannot deliver webhooks over HTTP",
+      "description": "The configured public Home Assistant URL uses HTTP. sipgate only delivers webhooks over HTTPS with a publicly trusted certificate, so call events will stop. Reconfigure the sipgate.io integration with an HTTPS URL and update the webhook URL in the sipgate web console."
     }
   }
 }

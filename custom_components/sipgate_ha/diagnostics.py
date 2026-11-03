@@ -19,6 +19,8 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return privacy-aware diagnostics for a config entry."""
     del hass
+    runtime = getattr(entry, "runtime_data", None)
+    account_type = getattr(runtime, "account_type", None)
     return {
         "entry": {
             "title": entry.title,
@@ -26,4 +28,7 @@ async def async_get_config_entry_diagnostics(
             "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
         "token_id_present": bool(entry.data.get(CONF_TOKEN_ID)),
+        "account_type": (
+            account_type.as_diagnostics() if account_type is not None else None
+        ),
     }

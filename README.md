@@ -10,8 +10,12 @@ no YAML required to configure the integration itself.
 - Home Assistant **2026.9.0 or newer**.
 - A sipgate account with sipgate.io push webhooks enabled.
 - A sipgate Personal Access Token (PAT) with `account:read`. Add `rtcm:write` for Hang up and recording, `history:read` for recent call history, `sessions:calls:write` for click-to-call, and `sessions:sms:write` for SMS.
-- A Home Assistant URL that sipgate can reach from the internet. HTTPS is
-  strongly recommended by sipgate.
+- A Home Assistant **HTTPS** URL that sipgate can reach from the internet,
+  with a publicly trusted certificate (no self-signed certificates) and no HTTP
+  redirects. sipgate Neo does not deliver webhooks to HTTP URLs or follow
+  redirects.
+- Works with both sipgate Classic and sipgate Neo accounts; see
+  [sipgate Neo](#sipgate-neo).
 
 ## Installation
 
@@ -164,6 +168,8 @@ these switches.
 
 Click-to-call requires `sessions:calls:write`. The source can be a sipgate extension such as `e14` or a number. If `from` is a group/number rather than an extension, provide `device_id`.
 
+On sipgate Neo the action calls `POST /v2/calls` instead of `POST /v2/sessions/calls`, and accepts an optional `channel_id` to choose the channel the call is placed from (otherwise the device's default channel is used). `channel_id` is ignored on Classic accounts.
+
 ```yaml
 action: sipgate_ha.click_to_call
 data:
@@ -242,6 +248,44 @@ value from 1 to 1440 minutes to enable a fallback polling interval. Manual
 `homeassistant.update_entity` calls against the Recent calls sensor still force
 an immediate refresh.
 
+## sipgate Neo
+
+sipgate is moving accounts from Classic to sipgate Neo. The integration
+supports both and, by default, detects which one your account runs on.
+
+| Feature | Classic | sipgate Neo |
+| --- | --- | --- |
+| Recent calls sensor | `GET /history` | `GET /channels/{channelId}/events` |
+| Click to call | `POST /sessions/calls` | `POST /calls` |
+| Hang up, recording | `DELETE /calls/{id}`, `PUT /calls/{id}/recording` | unchanged |
+| SMS | `POST /sessions/sms` | unchanged |
+| Webhooks | configured per extension | configured per channel |
+
+**Detection.** Personal Access Tokens don't carry sipgate's `featureScope`
+claim, so in **Automatic** mode the integration calls `GET /channels`: if it
+returns channels, the account is treated as sipgate Neo. A Classic result is
+re-checked every six hours, so the upgrade is picked up without restarting Home
+Assistant. You can force **Classic** or **sipgate Neo** under
+**Settings → Devices & services → sipgate.io → Configure → sipgate platform**.
+The detected platform is shown in the integration's diagnostics download.
+
+**Channels.** On sipgate Neo the Recent calls sensor merges the newest events
+from your channels. Leave **sipgate Neo channel IDs** empty to use the first
+five channels the token can see, or list specific IDs (comma-separated). The
+PAT's user must be a member of each channel; an admin role alone does not grant
+access to channel events. Voicemails and recordings appear in each event's
+`recordings` attribute.
+
+**Webhooks.** In the sipgate web console, webhooks are enabled per channel on
+Neo, so make sure the channels you want call events for are selected. Webhook
+URLs must be HTTPS with a publicly trusted certificate and must not redirect.
+Existing installations configured with an `http://` URL get a Home Assistant
+repair issue; use **Reconfigure** to switch to HTTPS. If you set sipgate's Push
+API to version 2, webhook events also include `channel_id`.
+
+The integration's callback XML only uses `onAnswer` and `onHangup`, so none of
+the removed sipgate Neo verbs (`<Say>`, `<Record>`, `<Device>`) affect it.
+
 ## Architecture
 
 ```text
@@ -257,12 +301,14 @@ Home Assistant /api/webhook/<random-id>
 
 Home Assistant
     ├─ push-driven call state entities
-    ├─ recent call history ──► GET api.sipgate.com/v2/history
+    ├─ recent call history ──► Classic: GET api.sipgate.com/v2/history
+    │                          Neo:     GET api.sipgate.com/v2/channels/<id>/events
     │   (startup + hangup; optional timed fallback)
     ├─ API usage counters ───► persisted locally in Home Assistant
     ├─ hang_up ──────────────► DELETE /v2/calls/<callId>
     ├─ start/stop_recording ─► PUT /v2/calls/<callId>/recording
-    ├─ click_to_call ────────► POST /v2/sessions/calls
+    ├─ click_to_call ────────► Classic: POST /v2/sessions/calls
+    │                          Neo:     POST /v2/calls
     └─ send_sms ──────────────► POST /v2/sessions/sms
 ```
 
@@ -302,7 +348,8 @@ responses separately.
   webhook helper and is also redacted from diagnostics.
 - Caller mappings are local Home Assistant options and are redacted from
   diagnostics.
-- sipgate recommends HTTPS for push webhooks because call metadata is sensitive.
+- sipgate requires HTTPS for push webhooks (and rejects self-signed
+  certificates) because call metadata is sensitive.
 
 ## License
 

@@ -50,6 +50,10 @@ click_to_call:
       example: "+441513200220"
       selector:
         text:
+    channel_id:
+      example: c0
+      selector:
+        text:
 
 send_sms:
   fields:

@@ -22,6 +22,7 @@ from custom_components.sipgate_ha.const import (
 async def test_user_flow(hass: HomeAssistant, aioclient_mock) -> None:
     """A valid PAT leads to a webhook confirmation and config entry."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/channels", status=404)
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
@@ -204,6 +205,7 @@ async def test_reauth_flow(
     assert not result["errors"]
 
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/channels", status=404)
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
         json={"items": [], "totalCount": 0},
@@ -232,6 +234,7 @@ async def test_reconfigure_flow(
 ) -> None:
     """Reconfigure updates credentials and the public URL without rotating the hook."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/channels", status=404)
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
         json={"items": [], "totalCount": 0},

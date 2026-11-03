@@ -17,9 +17,11 @@ from homeassistant.exceptions import (
     ServiceValidationError,
 )
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
+from .account_type import SipgateAccountType, parse_channel_ids
 from .api import (
     SipgateApiError,
     SipgateAuthenticationError,
@@ -34,17 +36,22 @@ from .const import (
     ATTR_ANNOUNCEMENT,
     ATTR_CALL_ID,
     ATTR_CALLER_ID,
+    ATTR_CHANNEL_ID,
     ATTR_DEVICE_ID,
     ATTR_FROM,
     ATTR_MESSAGE,
     ATTR_RECIPIENT,
     ATTR_SMS_ID,
     ATTR_TO,
+    CONF_ACCOUNT_TYPE,
+    CONF_CHANNEL_IDS,
     CONF_HISTORY_REFRESH_MINUTES,
     CONF_PUBLIC_URL,
     CONF_TOKEN_ID,
+    DEFAULT_ACCOUNT_TYPE,
     DEFAULT_AUTO_RECORD_ANNOUNCEMENT,
     DEFAULT_AUTO_RECORD_CALLS,
+    DEFAULT_CHANNEL_IDS,
     DEFAULT_HISTORY_REFRESH_MINUTES,
     DOMAIN,
     LEGACY_CONF_AUTO_RECORD_ANNOUNCEMENT,
@@ -82,6 +89,7 @@ class SipgateRuntimeData:
     webhook_url: str
     call_state: SipgateCallState
     history_coordinator: SipgateHistoryCoordinator
+    account_type: SipgateAccountType
     api_usage: SipgateApiUsage
     recording_preferences: SipgateRecordingPreferences
 
@@ -168,12 +176,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     async def async_click_to_call(call: ServiceCall) -> None:
         runtime = _get_runtime(hass)
         try:
-            session_id = await runtime.client.async_click_to_call(
-                from_endpoint=call.data[ATTR_FROM],
-                to_number=call.data[ATTR_TO],
-                device_id=call.data.get(ATTR_DEVICE_ID),
-                caller_id=call.data.get(ATTR_CALLER_ID),
-            )
+            if await runtime.account_type.async_is_neo():
+                session_id = await runtime.client.async_neo_click_to_call(
+                    from_endpoint=call.data[ATTR_FROM],
+                    to_number=call.data[ATTR_TO],
+                    device_id=call.data.get(ATTR_DEVICE_ID),
+                    caller_id=call.data.get(ATTR_CALLER_ID),
+                    channel_id=call.data.get(ATTR_CHANNEL_ID),
+                )
+            else:
+                session_id = await runtime.client.async_click_to_call(
+                    from_endpoint=call.data[ATTR_FROM],
+                    to_number=call.data[ATTR_TO],
+                    device_id=call.data.get(ATTR_DEVICE_ID),
+                    caller_id=call.data.get(ATTR_CALLER_ID),
+                )
         except (
             SipgateApiError,
             SipgateAuthenticationError,
@@ -249,6 +266,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 vol.Required(ATTR_TO): cv.string,
                 vol.Optional(ATTR_DEVICE_ID): cv.string,
                 vol.Optional(ATTR_CALLER_ID): cv.string,
+                vol.Optional(ATTR_CHANNEL_ID): cv.string,
             }
         ),
     )
@@ -293,7 +311,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     webhook_id = entry.data[CONF_WEBHOOK_ID]
     webhook_url = build_webhook_url(entry.data[CONF_PUBLIC_URL], webhook_id)
+    _async_check_public_url(hass, entry)
     call_state = SipgateCallState()
+    account_type = SipgateAccountType(
+        client,
+        entry.options.get(CONF_ACCOUNT_TYPE, DEFAULT_ACCOUNT_TYPE),
+        parse_channel_ids(entry.options.get(CONF_CHANNEL_IDS, DEFAULT_CHANNEL_IDS)),
+    )
     history_coordinator = SipgateHistoryCoordinator(
         hass,
         client,
@@ -303,6 +327,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 DEFAULT_HISTORY_REFRESH_MINUTES,
             )
         ),
+        account_type,
     )
     legacy_auto_record = bool(
         entry.options.get(
@@ -329,6 +354,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         webhook_url=webhook_url,
         call_state=call_state,
         history_coordinator=history_coordinator,
+        account_type=account_type,
         api_usage=api_usage,
         recording_preferences=recording_preferences,
     )
@@ -347,6 +373,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+def _async_check_public_url(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Raise a repair issue when sipgate cannot deliver webhooks to the URL."""
+    issue_id = "insecure_public_url"
+    if entry.data[CONF_PUBLIC_URL].startswith("http://"):
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue_id,
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=issue_id,
+        )
+    else:
+        ir.async_delete_issue(hass, DOMAIN, issue_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

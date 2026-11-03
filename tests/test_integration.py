@@ -37,6 +37,7 @@ from custom_components.sipgate_ha.const import (
 async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     """Set up a config entry with successful sipgate validation."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/channels", status=404)
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
         json={"items": [], "totalCount": 0},

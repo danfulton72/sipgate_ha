@@ -13,10 +13,14 @@ class InvalidPublicUrl(ValueError):
 
 
 def normalize_public_url(value: str) -> str:
-    """Validate and normalize a public Home Assistant base URL."""
+    """Validate and normalize a public Home Assistant base URL.
+
+    sipgate only delivers webhooks over HTTPS with a publicly trusted
+    certificate, so plain HTTP URLs are rejected.
+    """
     value = value.strip().rstrip("/")
     parsed = urlsplit(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if parsed.scheme.lower() != "https" or not parsed.netloc:
         raise InvalidPublicUrl
     if parsed.query or parsed.fragment:
         raise InvalidPublicUrl

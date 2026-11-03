@@ -48,6 +48,8 @@ def _base_event_data(entry: ConfigEntry, form: MultiDictProxy[str]) -> dict[str,
         "from": to_e164(_string(form, "from")),
         "to": to_e164(_string(form, "to")),
         "diversion": to_e164(_string(form, "diversion")),
+        # Sent by sipgate Neo when the Push API is set to version 2.
+        "channel_id": _string(form, "channelId"),
     }
 
 

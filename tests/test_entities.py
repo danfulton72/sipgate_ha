@@ -17,6 +17,7 @@ from custom_components.sipgate_ha.const import (
 async def _setup_entry(hass: HomeAssistant, entry, aioclient_mock) -> None:
     """Set up the integration and its entity platforms."""
     aioclient_mock.get(f"{API_BASE_URL}/account", json={"sub": "w0"})
+    aioclient_mock.get(f"{API_BASE_URL}/channels", status=404)
     aioclient_mock.get(
         f"{API_BASE_URL}/history",
         json={
@@ -80,8 +81,8 @@ async def test_entities_follow_webhooks(
             api_lifetime_id,
         )
     )
-    assert hass.states.get(api_today_id).state == "2"
-    assert hass.states.get(api_lifetime_id).state == "2"
+    assert hass.states.get(api_today_id).state == "3"
+    assert hass.states.get(api_lifetime_id).state == "3"
     client = await hass_client()
 
     await client.post(
@@ -128,8 +129,9 @@ async def test_entities_follow_webhooks(
     assert hass.states.get(last_call_id).state == "normalClearing"
     assert hass.states.get(history_id).state == "1"
     assert hass.states.get(history_id).attributes["calls"][0]["callId"] == "old-call"
-    assert hass.states.get(api_today_id).state == "3"
-    assert hass.states.get(api_lifetime_id).state == "3"
+    # account + channels probe + history at setup, then history after hangup.
+    assert hass.states.get(api_today_id).state == "4"
+    assert hass.states.get(api_lifetime_id).state == "4"
 
 
 async def test_api_usage_persists_across_reload(
@@ -138,8 +140,8 @@ async def test_api_usage_persists_across_reload(
     """Lifetime and daily API usage survive an integration reload."""
     await _setup_entry(hass, mock_config_entry, aioclient_mock)
     runtime = mock_config_entry.runtime_data
-    assert runtime.api_usage.today == 2
-    assert runtime.api_usage.lifetime == 2
+    assert runtime.api_usage.today == 3
+    assert runtime.api_usage.lifetime == 3
 
     assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
     await hass.async_block_till_done()
@@ -147,8 +149,8 @@ async def test_api_usage_persists_across_reload(
     await hass.async_block_till_done()
 
     runtime = mock_config_entry.runtime_data
-    assert runtime.api_usage.today == 4
-    assert runtime.api_usage.lifetime == 4
+    assert runtime.api_usage.today == 6
+    assert runtime.api_usage.lifetime == 6
 
 
 async def test_recording_switches_control_runtime_preferences(

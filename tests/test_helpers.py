@@ -26,6 +26,9 @@ def test_normalize_public_url() -> None:
         normalize_public_url("ha.example.com")
     with pytest.raises(InvalidPublicUrl):
         normalize_public_url("https://ha.example.com/?token=secret")
+    # sipgate only delivers webhooks over HTTPS.
+    with pytest.raises(InvalidPublicUrl):
+        normalize_public_url("http://ha.example.com")
 
 
 def test_number_helpers() -> None:
